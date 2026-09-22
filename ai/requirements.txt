@@ -1,0 +1,1 @@
+# Add real dependencies as the team picks its stack (e.g. anthropic, openai, langchain).

@@ -1,0 +1,98 @@
+minimum_pre_commit_version: "3.5.0"
+
+default_language_version:
+  python: python3
+
+repos:
+  # --- General hygiene (all files, all teams) ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: detect-private-key
+      - id: debug-statements
+      - id: no-commit-to-branch
+        args: [--branch, main]
+
+  # --- Secret scanning (belt-and-suspenders with CI's gitleaks) ---
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+        exclude: package-lock.json|pnpm-lock.yaml|yarn.lock
+
+  # --- Python teams: backend + ai (ruff = lint + format) ---
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        name: ruff lint (backend + ai)
+        args: [--fix]
+        files: ^(backend|ai)/
+      - id: ruff-format
+        name: ruff format (backend + ai)
+        files: ^(backend|ai)/
+
+  # --- Conventional commit messages (all teams) ---
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert]
+
+  # --- Frontend team: ESLint / Prettier / typecheck.
+  # Each hook no-ops with a warning if npm isn't on PATH, so a machine without
+  # Node isn't blocked from committing — CI always has Node and is the real
+  # backstop. Adjust the npm script names below once the frontend team
+  # settles on their actual lint/format/typecheck commands. ---
+  - repo: local
+    hooks:
+      - id: frontend-lint
+        name: frontend lint
+        entry: bash -c 'command -v npm >/dev/null 2>&1 && (cd frontend && npm run lint) || echo "npm not found - skipping frontend lint locally (CI still enforces this)"'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+      - id: frontend-format-check
+        name: frontend format check
+        entry: bash -c 'command -v npm >/dev/null 2>&1 && (cd frontend && npm run format:check) || echo "npm not found - skipping frontend format check locally (CI still enforces this)"'
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js|jsx|json|css|md)$
+        pass_filenames: false
+
+      - id: frontend-typecheck
+        name: frontend typecheck (pre-push)
+        entry: bash -c 'command -v npm >/dev/null 2>&1 && (cd frontend && npm run typecheck) || echo "npm not found - skipping frontend typecheck locally (CI still enforces this)"'
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: backend-tests
+        name: backend tests (pre-push)
+        entry: bash -c 'command -v pytest >/dev/null 2>&1 && (cd backend && python -m pytest -q) || echo "pytest not found - skipping backend tests locally (CI still enforces this)"'
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: ai-tests
+        name: ai tests (pre-push)
+        entry: bash -c 'command -v pytest >/dev/null 2>&1 && (cd ai && python -m pytest -q) || echo "pytest not found - skipping ai tests locally (CI still enforces this)"'
+        language: system
+        files: ^ai/.*\.py$
+        pass_filenames: false
+        stages: [pre-push]
