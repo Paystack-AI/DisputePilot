@@ -21,8 +21,6 @@ repos:
       - id: check-toml
       - id: detect-private-key
       - id: debug-statements
-      - id: no-commit-to-branch
-        args: [--branch, main]
 
   # --- Secret scanning (belt-and-suspenders with CI's gitleaks) ---
   - repo: https://github.com/Yelp/detect-secrets
