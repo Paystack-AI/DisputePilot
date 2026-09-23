@@ -5,25 +5,26 @@ design.
 
 ## Setup
 
+Uses [uv](https://docs.astral.sh/uv/) for dependency management — no separate venv activation step,
+`uv run` handles that for you.
+
 ```bash
 cd backend
-python -m venv .venv
-source .venv/Scripts/activate   # Windows Git Bash; use .venv\Scripts\Activate.ps1 in PowerShell
-pip install -r requirements-dev.txt
+uv sync --extra dev
 cp .env.example .env
 ```
 
 ## Run
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
 ## Checks (same ones CI and pre-commit run)
 
 ```bash
-ruff check .
-ruff format --check .
-pytest -q
-pip-audit -r requirements.txt
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest -q
+uv run pip-audit
 ```
