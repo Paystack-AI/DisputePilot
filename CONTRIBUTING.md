@@ -13,9 +13,9 @@ for that stack's own setup.
 
 ## Branching
 
-- Direct commits to `main` are fine — no branch protection for this hackathon. Any team can decide to
-  start using feature branches + PRs later if they want extra review before merging.
-- Branch names (if used): `feat/short-description`, `fix/short-description`, `chore/short-description`.
+- `main` is protected by a local hook — commits must be made on a branch, then merged into `main`
+  (PR or fast-forward merge, whichever's faster mid-hackathon).
+- Branch names: `feat/short-description`, `fix/short-description`, `chore/short-description`.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) — enforced by
   the `commit-msg` hook: `feat: add login form`, `fix: correct date parsing`.
 
