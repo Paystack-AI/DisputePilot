@@ -83,7 +83,7 @@ repos:
 
       - id: backend-tests
         name: backend tests (pre-push)
-        entry: bash -c 'command -v uv >/dev/null 2>&1 && (cd backend && uv run pytest -q) || echo "uv not found - skipping backend tests locally (CI still enforces this)"'
+        entry: bash -c 'command -v uv >/dev/null 2>&1 && (cd backend && uv run --extra dev pytest -q) || echo "uv not found - skipping backend tests locally (CI still enforces this)"'
         language: system
         files: ^backend/.*\.py$
         pass_filenames: false
