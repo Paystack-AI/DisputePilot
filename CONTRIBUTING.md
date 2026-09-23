@@ -13,8 +13,9 @@ for that stack's own setup.
 
 ## Branching
 
-- `main` is protected by a local hook — commits must be made on a branch, then merged into `main`
-  (PR or fast-forward merge, whichever's faster mid-hackathon).
+- `main` is protected by a local hook (`no-commit-to-branch`) — you can't commit while `main` is
+  checked out, and since the hook also runs at the `pre-push` stage, you can't push to `main`
+  directly either. Work happens on a branch; it lands on `main` only via a GitHub pull request.
 - Branch names: `feat/short-description`, `fix/short-description`, `chore/short-description`.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) — enforced by
   the `commit-msg` hook: `feat: add login form`, `fix: correct date parsing`.
@@ -25,7 +26,7 @@ for that stack's own setup.
 |---|---|
 | `git commit` | file hygiene checks, secret scan, lint/format for whichever team's files changed, commit message format |
 | `git push` | tests for whichever team's files changed |
-| PR opened / push to PR | full CI for each team touched: lint + test + build, gitleaks, CodeQL, dependency review |
+| PR opened / push to PR | full CI for each team touched: lint + test + build |
 
 If a hook fails, fix the issue and re-commit — don't skip hooks (`--no-verify`) unless you've cleared
 it with the team; CI runs the same checks and will still block the PR.
