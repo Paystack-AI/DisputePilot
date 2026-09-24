@@ -158,7 +158,7 @@ requires-dist = [
     { name = "redis", specifier = ">=8.1.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.9" },
     { name = "sqlalchemy", specifier = ">=2.0.54" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.53.0" },
 ]
 provides-extras = ["dev"]
 

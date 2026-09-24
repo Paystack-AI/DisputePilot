@@ -12,7 +12,7 @@ dependencies = [
     "pyrate-limiter",
     "redis>=8.1.0",
     "sqlalchemy>=2.0.54",
-    "uvicorn[standard]>=0.30",
+    "uvicorn[standard]>=0.53.0",
 ]
 
 [project.optional-dependencies]
