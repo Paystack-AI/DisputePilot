@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # rabbitmq
     BROKER_URL: str
 
+    # rate limit keys
+    READ_LIMIT_KEY: str = "limiter:read"
+    WRITE_LIMIT_KEY: str = "limiter:write"
+
 
 @lru_cache(maxsize=1)
 def get_settings():
