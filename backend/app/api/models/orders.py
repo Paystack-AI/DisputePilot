@@ -18,7 +18,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.api.models.base import Base
-from app.api.models.enums import Currency, OrderStatus
+from app.api.models.enums import Currency, OrderSource, OrderStatus
 
 
 class Order(Base):
@@ -46,7 +46,13 @@ class Order(Base):
         ),
         default=OrderStatus.PENDING,
     )
-    source: Mapped[str] = mapped_column(VARCHAR(50))
+    source: Mapped[OrderSource] = mapped_column(
+        PgEnum(
+            OrderSource,
+            name="order_source",
+            values_callable=lambda e: [m.value for m in e],
+        )
+    )
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
