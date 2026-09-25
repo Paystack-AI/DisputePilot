@@ -114,3 +114,13 @@ class TransactionStatus(enum.StrEnum):
     INITIATED = "initiated"
     ABANDONED = "abandoned"
     PROCESSING = "processing"
+
+
+class OtpStatus(enum.StrEnum):
+    VALID = "valid"
+    USED = "used"
+
+
+class UserType(enum.StrEnum):
+    EMAIL = "email"
+    GOOGLE = "google"
