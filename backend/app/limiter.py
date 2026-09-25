@@ -1,34 +1,25 @@
 import time
-from typing import Any
-from uuid import uuid4
 
 from fastapi.requests import Request
 from fastapi.responses import Response
 from fastapi_limiter.callback import default_callback
 from fastapi_limiter.depends import RateLimiter
-from fastapi_limiter.identifier import default_identifier
 from pyrate_limiter.abstracts.bucket import BucketFactory
 from pyrate_limiter.abstracts.rate import Duration, Rate, RateItem
 from pyrate_limiter.buckets.redis_bucket import RedisBucket
 from pyrate_limiter.limiter import Limiter
 from redis.asyncio import Redis
 
-
-async def test_aware_identifier(request: Request) -> str | Any:
-    """
-    Bypass limiter in test environment.
-    Default_identifier already keys by client IP + path.
-    """
-    if request.headers.get("env") == "test":
-        return f"test:{uuid4()}"
-    return await default_identifier(request)
-
-
 DURATION_MAPPING = {
     "hours": Duration.HOUR,
     "seconds": Duration.SECOND,
     "minutes": Duration.MINUTE,
 }
+
+
+async def client_identifier(request: Request):
+    ip = request.client.host if request.client else "127.0.0.1"
+    return f"{ip}:{request.scope['path']}"
 
 
 class SafeRateLimiter(RateLimiter):
@@ -127,7 +118,7 @@ async def get_limiter(request: Request, config: tuple) -> RateLimiter:
 
         rate_limiter = SafeRateLimiter(
             limiter=limiter,
-            identifier=test_aware_identifier,
+            identifier=client_identifier,
             callback=default_callback,
         )
 

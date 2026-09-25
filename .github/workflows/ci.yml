@@ -70,6 +70,23 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # Placeholder settings so app.core.config.Settings loads in CI. These are
+    # not real credentials; tests must not rely on them reaching real services.
+    env:
+      ENVIRONMENT: test
+      ASYNC_DB_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/disputepilot  # pragma: allowlist secret
+      SYNC_DB_URL: postgresql://postgres:postgres@localhost:5432/disputepilot  # pragma: allowlist secret
+      ASYNC_TEST_DB_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/disputepilot_test  # pragma: allowlist secret
+      REDIS_URL: redis://localhost:6379/0
+      BROKER_URL: amqp://guest:guest@localhost:5672//  # pragma: allowlist secret
+      ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      ACCESS_TOKEN_EXPIRE_TIME: 15
+      REFRESH_TOKEN_EXPIRE_TIME: 7
+      ACCESS_TOKEN_SECRET_KEY: ci-access-token-secret-not-for-production  # pragma: allowlist secret
+      REFRESH_TOKEN_SECRET_KEY: ci-refresh-token-secret-not-for-production  # pragma: allowlist secret
+      GOOGLE_CLIENT_ID: ci-google-client-id
+      GOOGLE_CLIENT_SECRET: ci-google-client-secret  # pragma: allowlist secret
+      ARGON2_PASSWORD_PEPPER: ci-argon2-pepper  # pragma: allowlist secret
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
