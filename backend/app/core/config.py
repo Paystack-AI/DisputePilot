@@ -36,6 +36,24 @@ class Settings(BaseSettings):
     READ_LIMIT_KEY: str = "limiter:read"
     WRITE_LIMIT_KEY: str = "limiter:write"
 
+    # paystack
+    ENCRYPTION_KEY: str
+
+    # JWT
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_TIME: int
+    REFRESH_TOKEN_EXPIRE_TIME: int
+    ACCESS_TOKEN_SECRET_KEY: str
+    REFRESH_TOKEN_SECRET_KEY: str
+
+    # google oauth
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_OAUTH_URL: str = "https://accounts.google.com/.well-known/openid-configuration"
+    GOOGLE_CLIENT_SECRET: str
+
+    # Argon2
+    ARGON2_PASSWORD_PEPPER: str
+
 
 @lru_cache(maxsize=1)
 def get_settings():

@@ -16,7 +16,7 @@ class Merchant(Base):
     google_email: Mapped[str | None] = mapped_column(VARCHAR(255), unique=True)
     business_name: Mapped[str] = mapped_column(VARCHAR(255))
     paystack_integration_id: Mapped[str] = mapped_column(VARCHAR(100), unique=True)
-    paystack_secret_key: Mapped[str] = mapped_column(Text)  # encrypted before saving
+    paystack_secret_key: Mapped[str | None] = mapped_column(Text)  # encrypted before saving
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
