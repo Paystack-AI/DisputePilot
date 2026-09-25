@@ -41,5 +41,8 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "rate_limited: run the test with the real rate limiters enabled"
+]
 asyncio_default_fixture_loop_scope= "session"
 asyncio_default_test_loop_scope= "session"
