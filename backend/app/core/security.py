@@ -6,7 +6,9 @@ from uuid import uuid4
 
 from authlib.integrations.starlette_client import OAuth
 from cryptography.fernet import Fernet
-from jose import JWTError, jwt
+from joserfc import jwt
+from joserfc.errors import JoseError
+from joserfc.jwk import OctKey
 from pwdlib.hashers.argon2 import Argon2Hasher
 
 from app.api.schemas.auth import TokenData
@@ -15,10 +17,20 @@ from app.core.config import get_settings
 
 class Security:
     SETTINGS = get_settings()
+    # exp is always set when issuing, so a token without one is rejected.
+    CLAIMS_REGISTRY = jwt.JWTClaimsRegistry(exp={"essential": True})
 
     def __init__(self):
         self.oauth: OAuth = OAuth()
         self.arg2_hasher = Argon2Hasher()
+
+    def _encode_jwt(self, payload: dict, key: str) -> str:
+        return jwt.encode(
+            {"alg": self.SETTINGS.JWT_ALGORITHM},
+            payload,
+            OctKey.import_key(key),
+            algorithms=[self.SETTINGS.JWT_ALGORITHM],
+        )
 
     async def register_oauth(self):
         self.oauth.register(
@@ -82,13 +94,7 @@ class Security:
             "usertype": token_data.user_type,
         }
 
-        token: str = jwt.encode(
-            claims=payload,
-            key=self.SETTINGS.ACCESS_TOKEN_SECRET_KEY,
-            algorithm=self.SETTINGS.JWT_ALGORITHM,
-        )
-
-        return token
+        return self._encode_jwt(payload, self.SETTINGS.ACCESS_TOKEN_SECRET_KEY)
 
     async def create_refresh_token(
         self, token_data: TokenData, expire_time: int | None = None
@@ -108,11 +114,7 @@ class Security:
             "usertype": token_data.user_type,
         }
 
-        token: str = jwt.encode(
-            claims=payload,
-            key=self.SETTINGS.REFRESH_TOKEN_SECRET_KEY,
-            algorithm=self.SETTINGS.JWT_ALGORITHM,
-        )
+        token: str = self._encode_jwt(payload, self.SETTINGS.REFRESH_TOKEN_SECRET_KEY)
 
         return token, payload["jti"], payload["usertype"]
 
@@ -121,11 +123,14 @@ class Security:
             if token is None:
                 return
 
-            payload: dict = jwt.decode(
-                token=token, key=key, algorithms=[self.SETTINGS.JWT_ALGORITHM]
+            decoded = jwt.decode(
+                token,
+                OctKey.import_key(key),
+                algorithms=[self.SETTINGS.JWT_ALGORITHM],
             )
-            return payload
-        except JWTError:
+            self.CLAIMS_REGISTRY.validate(decoded.claims)
+            return decoded.claims
+        except JoseError:
             return
 
     async def prepare_tokens(self, token_data: TokenData):
