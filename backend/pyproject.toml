@@ -16,7 +16,7 @@ dependencies = [
     "redis>=8.1.0",
     "sentry-sdk>=2.70.0",
     "sqlalchemy>=2.0.54",
-    "uvicorn[standard]>=0.30",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [project.optional-dependencies]
