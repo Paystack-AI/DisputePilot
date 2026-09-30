@@ -14,11 +14,11 @@ class EventChannel:
 
     @property
     def channel(self):
-        return self.channel
+        return self._channel
 
     @channel.setter
-    def channel(self):
-        self.channel = self.channel
+    def channel(self, channel):
+        self._channel = channel
 
     def pubsub_async(self):
         return self.async_redis.pubsub()
@@ -77,7 +77,7 @@ class EventChannel:
         except Exception as exc:
             sentry_sdk.capture_exception(exc)
             sentry_logger.error(
-                "Error occured while retrieving message from channel",
+                "Error occurred while retrieving message from channel",
                 extra={"channel": self.channel},
             )
         finally:

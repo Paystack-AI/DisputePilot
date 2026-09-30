@@ -2,9 +2,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.core.config import get_settings
 from app.core.exception_handlers import ExceptionHandler
 from app.database.session import redis_client
 from app.middleware import RequestIDMiddleware
+
+SETTINGS = get_settings()
 
 
 @asynccontextmanager
@@ -17,7 +20,12 @@ async def lifespan(app: FastAPI):
     await app.state.redis.aclose()
 
 
-app = FastAPI(title="Backend", lifespan=lifespan)
+app = FastAPI(
+    title=SETTINGS.API_TITLE,
+    description=SETTINGS.API_DESCRIPTION,
+    version=SETTINGS.API_VERSION,
+    lifespan=lifespan,
+)
 
 
 app.add_middleware(RequestIDMiddleware)
