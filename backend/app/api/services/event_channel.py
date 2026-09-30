@@ -7,7 +7,7 @@ from redis.asyncio import Redis
 
 class EventChannel:
     def __init__(self, async_redis: Redis, channel: str):
-        self.channel = channel
+        self._channel = channel
         self.async_redis = async_redis
 
     MESSAGE_TIMEOUT = 10
@@ -17,8 +17,8 @@ class EventChannel:
         return self._channel
 
     @channel.setter
-    def channel(self, channel):
-        self._channel = channel
+    def channel(self, event_channel):
+        self._channel = event_channel
 
     def pubsub_async(self):
         return self.async_redis.pubsub()
