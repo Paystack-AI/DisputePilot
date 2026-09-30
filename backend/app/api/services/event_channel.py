@@ -7,18 +7,18 @@ from redis.asyncio import Redis
 
 class EventChannel:
     def __init__(self, async_redis: Redis, channel: str):
-        self.channel = channel
+        self._channel = channel
         self.async_redis = async_redis
 
     MESSAGE_TIMEOUT = 10
 
     @property
     def channel(self):
-        return self.channel
+        return self._channel
 
     @channel.setter
-    def channel(self):
-        self.channel = self.channel
+    def channel(self, event_channel):
+        self._channel = event_channel
 
     def pubsub_async(self):
         return self.async_redis.pubsub()
@@ -77,7 +77,7 @@ class EventChannel:
         except Exception as exc:
             sentry_sdk.capture_exception(exc)
             sentry_logger.error(
-                "Error occured while retrieving message from channel",
+                "Error occurred while retrieving message from channel",
                 extra={"channel": self.channel},
             )
         finally:

@@ -63,7 +63,7 @@ class Security:
             cursor_string = base64.b64decode(cursor_string)
             cursor_payload = json.loads(cursor_string)
 
-            if cursor_payload["order"] != curr_order.lower():
+            if cursor_payload.get("order") != curr_order.lower():
                 return
             return cursor_payload
         except (json.JSONDecodeError, UnicodeDecodeError, binascii_error):
