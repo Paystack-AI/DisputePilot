@@ -3,6 +3,7 @@ from app.api.models.customers import Customer
 from app.api.models.dispute_evidence_files import DisputeEvidenceFile
 from app.api.models.disputes import Dispute
 from app.api.models.fulfillments import Fulfillment
+from app.api.models.merchant_onboarding import MerchantOnboarding
 from app.api.models.merchant_settings import MerchantSettings
 from app.api.models.merchants import Merchant
 from app.api.models.notifications_log import NotificationLog
@@ -24,6 +25,7 @@ __all__ = [
     "NotificationLog",
     "ReconciliationSession",
     "MerchantSettings",
+    "MerchantOnboarding",
     "TrustProfile",
     "TrustSnapshot",
 ]
