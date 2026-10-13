@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_SECRET_KEY: str
     REFRESH_TOKEN_SECRET_KEY: str
 
+    # otp
+    OTP_EXPIRE_TIME: int = 15  # minutes
+    OTP_MAX_ATTEMPTS: int = 5
+    OTP_SECRET_KEY: str  # hmac key, codes are never stored in plain text
+
     # google oauth
     GOOGLE_CLIENT_ID: str
     GOOGLE_OAUTH_URL: str = "https://accounts.google.com/.well-known/openid-configuration"

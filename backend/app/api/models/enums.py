@@ -121,9 +121,9 @@ class TransactionStatus(enum.StrEnum):
     PROCESSING = "processing"
 
 
-class OtpStatus(enum.StrEnum):
-    VALID = "valid"
-    USED = "used"
+class OtpPurpose(enum.StrEnum):
+    EMAIL_VERIFICATION = "email_verification"
+    PASSWORD_RESET = "password_reset"  # pragma: allowlist secret
 
 
 class UserType(enum.StrEnum):

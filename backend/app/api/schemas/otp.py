@@ -1,27 +1,20 @@
-from datetime import datetime
-from uuid import UUID
+from pydantic import BaseModel
 
-from pydantic import BaseModel, ConfigDict, EmailStr
-
-from app.api.models.enums import OtpStatus
+from app.api.schemas.auth import AuthBase, LowerEmail, OtpCode
 
 
-class OtpBase(BaseModel):
-    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
-
-    email: EmailStr
+class OtpBase(AuthBase):
+    email: LowerEmail
 
 
 class EmailVerify(OtpBase):
-    otp_code: str
+    otp_code: OtpCode
 
 
 class ResendOtp(OtpBase):
     pass
 
 
-class OtpInDB(OtpBase):
-    otp: str
-    user_id: UUID
-    status: OtpStatus = "valid"
-    expires_at: datetime
+class OtpSentResponse(BaseModel):
+    email: str
+    expires_in: int  # seconds until the code expires

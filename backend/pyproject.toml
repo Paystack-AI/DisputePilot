@@ -16,6 +16,7 @@ dependencies = [
     "redis>=8.1.0",
     "sentry-sdk>=2.70.0",
     "sqlalchemy>=2.0.54",
+    "tzdata>=2026.5",
     "uvicorn[standard]>=0.30",
 ]
 

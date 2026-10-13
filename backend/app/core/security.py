@@ -7,12 +7,13 @@ from uuid import uuid4
 from authlib.integrations.starlette_client import OAuth
 from cryptography.fernet import Fernet
 from joserfc import jwt
-from joserfc.errors import JoseError
+from joserfc.errors import ExpiredTokenError, JoseError
 from joserfc.jwk import OctKey
 from pwdlib.hashers.argon2 import Argon2Hasher
 
 from app.api.schemas.auth import TokenData
 from app.core.config import get_settings
+from app.core.exceptions import TokenExpiredError
 
 
 class Security:
@@ -88,9 +89,11 @@ class Security:
             expire_time: datetime = datetime.now(UTC) + timedelta(minutes=expire_time)
 
         payload: dict = {
-            "sub": token_data.email,
+            "sub": str(token_data.merchant_id),
             "exp": expire_time,
             "iat": datetime.now(UTC),
+            # accepted only while this session is active
+            "sid": str(token_data.session_id),
             "usertype": token_data.user_type,
         }
 
@@ -107,16 +110,18 @@ class Security:
             expire_time: datetime = datetime.now(UTC) + timedelta(days=expire_time)
 
         payload: dict = {
-            "sub": token_data.email,
+            "sub": str(token_data.merchant_id),
             "exp": expire_time,
             "iat": datetime.now(UTC),
+            # accepted only while it is the session's current refresh token
+            "sid": str(token_data.session_id),
             "jti": str(uuid4()),
             "usertype": token_data.user_type,
         }
 
         token: str = self._encode_jwt(payload, self.SETTINGS.REFRESH_TOKEN_SECRET_KEY)
 
-        return token, payload["jti"], payload["usertype"]
+        return token, payload["jti"]
 
     async def decode_token(self, token: str, key: str):
         try:
@@ -130,18 +135,20 @@ class Security:
             )
             self.CLAIMS_REGISTRY.validate(decoded.claims)
             return decoded.claims
+        except ExpiredTokenError as exc:
+            # the client should refresh instead of logging in again
+            raise TokenExpiredError() from exc
         except JoseError:
             return
 
     async def prepare_tokens(self, token_data: TokenData):
         access_token: str = await self.create_access_token(token_data)
-        refresh_token, refresh_token_id, user_type = await self.create_refresh_token(token_data)
+        refresh_token, refresh_token_id = await self.create_refresh_token(token_data)
 
         refresh_token_expire_time: int = get_settings().REFRESH_TOKEN_EXPIRE_TIME * 24 * 3600
 
         refresh_token_payload: dict = {
-            "email": token_data.email,
-            "user_type": user_type,
+            "session_id": str(token_data.session_id),
             "refresh_token_id": refresh_token_id,
             "refresh_token": refresh_token,
             "refresh_token_expire_time": refresh_token_expire_time,

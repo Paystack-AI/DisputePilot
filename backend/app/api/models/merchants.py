@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import UUID, VARCHAR, DateTime, PrimaryKeyConstraint, Text, text
+from sqlalchemy import BOOLEAN, UUID, VARCHAR, DateTime, PrimaryKeyConstraint, Text, text
 from sqlalchemy import Enum as PgEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -13,10 +13,14 @@ class Merchant(Base):
     __tablename__ = "merchants"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    email: Mapped[str] = mapped_column(VARCHAR(255), unique=True)
+    email: Mapped[str | None] = mapped_column(VARCHAR(255), unique=True)
     google_id: Mapped[str | None] = mapped_column(VARCHAR(255), unique=True)
+    google_email: Mapped[str | None] = mapped_column(VARCHAR(255), unique=True)
+    hashed_password: Mapped[str | None] = mapped_column(Text)  # null for google sign ins
     business_name: Mapped[str] = mapped_column(VARCHAR(255))
-    paystack_integration_id: Mapped[str] = mapped_column(VARCHAR(100), unique=True)
+    # read from paystack objects (transactions, disputes) once the merchant has activity;
+    # paystack has no endpoint that returns it directly
+    paystack_integration_id: Mapped[str | None] = mapped_column(VARCHAR(100), unique=True)
     paystack_secret_key: Mapped[str | None] = mapped_column(Text)  # encrypted before saving
     # live|test, known once the secret key has been validated against Paystack
     paystack_mode: Mapped[PaystackMode | None] = mapped_column(
@@ -28,6 +32,10 @@ class Merchant(Base):
     )
     # last time the secret key was (re)connected; keys can be rotated on the Paystack dashboard
     paystack_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    is_verified: Mapped[bool] = mapped_column(BOOLEAN, default=False)
+    # soft delete: deactivated merchants keep their data and can reactivate
+    is_active: Mapped[bool] = mapped_column(BOOLEAN, default=True)
+    deactivated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

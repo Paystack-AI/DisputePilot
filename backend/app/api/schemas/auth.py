@@ -1,6 +1,14 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from typing import Annotated
+from uuid import UUID
+
+from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field
 
 from app.api.models.enums import UserType
+
+# emails are unique per merchant, so compare them case-insensitively
+LowerEmail = Annotated[EmailStr, AfterValidator(str.lower)]
+Password = Annotated[str, Field(min_length=8, max_length=128)]
+OtpCode = Annotated[str, Field(pattern=r"^\d{6}$")]
 
 
 class AuthBase(BaseModel):
@@ -8,26 +16,34 @@ class AuthBase(BaseModel):
 
 
 class EmailAuth(AuthBase):
-    email: EmailStr
+    email: LowerEmail
 
 
-class TokenData(EmailAuth):
+class TokenData(AuthBase):
+    merchant_id: UUID
     user_type: UserType
+    # shared by every access and refresh token of one login, kept across refreshes
+    session_id: UUID
 
 
 class Token(AuthBase):
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
+    expires_in: int  # access token lifetime in seconds
+
+
+class RefreshToken(AuthBase):
+    refresh_token: str
 
 
 class MerchantSignUp(AuthBase):
-    business_name: str
-    paystack_integration_id: str
+    business_name: str = Field(..., min_length=1, max_length=255)
 
 
 class EmailSignUp(MerchantSignUp):
-    email: EmailStr
-    password: str = Field(..., min_length=8)
+    email: LowerEmail
+    password: Password
 
 
 class GoogleSignIn(MerchantSignUp):
@@ -35,16 +51,17 @@ class GoogleSignIn(MerchantSignUp):
 
 
 class EmailLogin(EmailAuth):
-    password: str = Field(..., min_length=8)
+    password: Password
 
 
-class SignUpResponse(BaseModel):
+class PasswordResetRequest(EmailAuth):
     pass
 
 
-class OtpResendResponse(BaseModel):
-    pass
+class PasswordReset(EmailAuth):
+    otp_code: OtpCode
+    password: Password
 
 
-class LogoutResponse(BaseModel):
-    pass
+class AccountDeactivate(AuthBase):
+    password: str

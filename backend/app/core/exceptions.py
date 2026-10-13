@@ -16,7 +16,76 @@ class AppException(Exception):
 
 
 class ServerError(AppException):
-    pass
+    """Internal Server error."""
+
+    def __init__(self):
+        super().__init__("INTERNAL_ERROR")
+
+
+class AuthenticationError(AppException):
+    """Merchant not authenticated: missing, malformed or revoked token."""
+
+    def __init__(self):
+        super().__init__("TOKEN_INVALID")
+
+
+class TokenExpiredError(AppException):
+    """Token signature is valid but it has expired."""
+
+    def __init__(self):
+        super().__init__("TOKEN_EXPIRED")
+
+
+class CredentialError(AppException):
+    """Wrong credentials provided."""
+
+    def __init__(self):
+        super().__init__("INVALID_CREDENTIALS")
+
+
+class MerchantExistsError(AppException):
+    """Merchant already exists with the email (or a unique paystack detail)."""
+
+    def __init__(self):
+        super().__init__("MERCHANT_EXISTS")
+
+
+class InvalidOtpError(AppException):
+    """Otp is wrong, expired or was never issued."""
+
+    def __init__(self):
+        super().__init__("INVALID_OTP")
+
+
+class OtpAttemptsExceededError(AppException):
+    """Too many wrong otp attempts; a new code must be requested."""
+
+    def __init__(self):
+        super().__init__("OTP_ATTEMPTS_EXCEEDED")
+
+
+class EmailNotVerifiedError(AppException):
+    """Merchant has not verified their email."""
+
+    def __init__(self):
+        super().__init__("EMAIL_NOT_VERIFIED")
+
+
+class AccountDeactivatedError(AppException):
+    """Merchant account is deactivated."""
+
+    def __init__(self):
+        super().__init__("ACCOUNT_DEACTIVATED")
+
+
+class OnboardingStepMismatchError(AppException):
+    """Onboarding action called while the merchant is on another step."""
+
+    def __init__(self, current_step: str):
+        super().__init__("ONBOARDING_STEP_MISMATCH")
+        self.current_step = current_step
+        # lets the client redirect to the step the merchant is actually on
+        self.details = {"current_step": current_step}
 
 
 class RateLimitExceeded(AppException):
@@ -35,6 +104,7 @@ def exception_handler(
             code=exc.code or detail.get("code"),
             message=message,
             request_id=request.state.request_id,
+            details=getattr(exc, "details", None),
         )
 
         content = ErrorResponse(error=error)
