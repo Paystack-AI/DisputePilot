@@ -51,7 +51,15 @@ class Settings(BaseSettings):
     OTP_MAX_ATTEMPTS: int = 5
     OTP_SECRET_KEY: str  # hmac key, codes are never stored in plain text
 
+    # frontend, where oauth sign in redirects back to
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # signs the session cookie that carries the oauth state between redirects
+    SESSION_SECRET_KEY: str
+
     # google oauth
+    # set when the api runs behind a proxy, otherwise built from the request url
+    GOOGLE_REDIRECT_URI: str | None = None
     GOOGLE_CLIENT_ID: str
     GOOGLE_OAUTH_URL: str = "https://accounts.google.com/.well-known/openid-configuration"
     GOOGLE_CLIENT_SECRET: str

@@ -21,8 +21,12 @@ class Security:
     # exp is always set when issuing, so a token without one is rejected.
     CLAIMS_REGISTRY = jwt.JWTClaimsRegistry(exp={"essential": True})
 
+    # shared by every instance, so google's server metadata is fetched once
+    # instead of on every request that creates a Security
+    OAUTH: OAuth = OAuth()
+
     def __init__(self):
-        self.oauth: OAuth = OAuth()
+        self.oauth: OAuth = self.OAUTH
         self.arg2_hasher = Argon2Hasher()
 
     def _encode_jwt(self, payload: dict, key: str) -> str:

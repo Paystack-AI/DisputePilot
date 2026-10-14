@@ -1,10 +1,13 @@
+import hashlib
+import json
+import secrets
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 import sentry_sdk
 import sentry_sdk.logger as sentry_logger
 
-from app.api.models.enums import OtpPurpose, UserType
+from app.api.models.enums import GoogleSignInError, GoogleSignInIntent, OtpPurpose, UserType
 from app.api.models.merchant_onboarding import MerchantOnboarding
 from app.api.models.merchant_settings import MerchantSettings
 from app.api.models.merchants import Merchant
@@ -17,8 +20,12 @@ from app.api.schemas.auth import (
     AccountDeactivate,
     EmailLogin,
     EmailSignUp,
+    GoogleSignInExchange,
+    GoogleSignUpComplete,
     PasswordReset,
     PasswordResetRequest,
+    Reactivate,
+    ReactivateRequest,
     TokenData,
 )
 from app.api.schemas.merchants import (
@@ -41,11 +48,17 @@ from app.core.exceptions import (
     AuthenticationError,
     CredentialError,
     EmailNotVerifiedError,
+    InvalidOAuthCodeError,
     InvalidOtpError,
     MerchantExistsError,
+    PasswordLoginRequiredError,
     ServerError,
 )
 from app.core.security import Security
+
+# one-time values handed to the frontend through the google redirect
+GOOGLE_SIGN_IN_CODE_TTL: int = 60  # seconds, exchanged for tokens straight away
+GOOGLE_SIGN_UP_TOKEN_TTL: int = 15 * 60  # seconds, time to fill in the business name
 
 
 class AuthService:
@@ -64,6 +77,38 @@ class AuthService:
         field ends one session and deleting the hash ends all of them.
         """
         return f"sessions:{merchant_id}"
+
+    @staticmethod
+    def _one_time_key(prefix: str, token: str) -> str:
+        # only a hash of the token is kept, so a redis dump can not be replayed
+        return f"{prefix}:{hashlib.sha256(token.encode()).hexdigest()}"
+
+    async def _create_one_time_token(self, prefix: str, value: str, ttl: int) -> str:
+        token: str = secrets.token_urlsafe(32)
+
+        try:
+            await self._redis_repo.set_key(self._one_time_key(prefix, token), value, ttl)
+            return token
+        except Exception as exc:
+            sentry_sdk.capture_exception(exc)
+            sentry_logger.error("Error occurred while saving {prefix} token", prefix=prefix)
+            raise ServerError() from exc
+
+    async def _use_one_time_token(self, prefix: str, token: str) -> str:
+        try:
+            value: str | None = await self._redis_repo.get_and_delete_key(
+                self._one_time_key(prefix, token)
+            )
+        except Exception as exc:
+            sentry_sdk.capture_exception(exc)
+            sentry_logger.error("Error occurred while reading {prefix} token", prefix=prefix)
+            raise ServerError() from exc
+
+        if value is None:
+            sentry_logger.error("Invalid or used {prefix} token received", prefix=prefix)
+            raise InvalidOAuthCodeError()
+
+        return value
 
     async def _setup_uow(self, uow: UnitOfWorkRepository):
         self._uow = uow
@@ -410,6 +455,7 @@ class AuthService:
         self,
         curr_merchant: Merchant,
         update_payload: MerchantUpdate,
+        access_token_claims: dict,
         security: Security,
         uow: UnitOfWorkRepository,
     ) -> MerchantResponse:
@@ -419,6 +465,15 @@ class AuthService:
         changes: dict = update_payload.model_dump(exclude_none=True, exclude={"current_password"})
 
         if "password" in changes:
+            # only a session that signed in with the password can change it; google
+            # sessions (even on a linked account) use password reset instead
+            if access_token_claims.get("usertype") != UserType.EMAIL:
+                sentry_logger.error(
+                    "Password change from a non password session for merchant {merchant_id}",
+                    merchant_id=merchant_id,
+                )
+                raise PasswordLoginRequiredError()
+
             current_password: str | None = update_payload.current_password
 
             if (
@@ -466,13 +521,19 @@ class AuthService:
         merchant: Merchant | None = await merchant_service._get_merchant(email=reset_request.email)
 
         # same response whether or not the email exists, so it can not be probed
-        if (
-            not merchant
-            or not merchant.hashed_password
-            or not merchant.is_verified
-            or not merchant.is_active
-        ):
+        if not merchant or not merchant.is_verified or not merchant.is_active:
             sentry_logger.info("Password reset requested for no eligible merchant")
+            return
+
+        if not merchant.hashed_password:
+            # google only account: there is no password to reset. The api response stays
+            # the same; the inbox owner is told how they actually sign in
+            # TODO: enqueue the send_email celery task (Resend) with a "this account signs
+            # in with Google" message, without a code
+            sentry_logger.info(
+                "Password reset requested for google only merchant {merchant_id}",
+                merchant_id=str(merchant.id),
+            )
             return
 
         await self._send_otp(merchant, OtpPurpose.PASSWORD_RESET)
@@ -505,26 +566,25 @@ class AuthService:
             "Password reset completed for merchant {merchant_id}", merchant_id=str(merchant.id)
         )
 
+    async def request_deactivation(self, curr_merchant: Merchant):
+        """Email a code that confirms deactivation; works for every account type"""
+        await self._send_otp(curr_merchant, OtpPurpose.ACCOUNT_DEACTIVATION)
+
     async def deactivate_account(
         self,
         curr_merchant: Merchant,
         deactivate_payload: AccountDeactivate,
-        security: Security,
         uow: UnitOfWorkRepository,
     ):
         await self._uow_merchant(uow)
         merchant_id: str = str(curr_merchant.id)
 
-        if not curr_merchant.hashed_password or not await security.verify_password(
-            deactivate_payload.password, curr_merchant.hashed_password
-        ):
-            sentry_logger.error(
-                "Invalid password received for merchant {merchant_id} deactivation",
-                merchant_id=merchant_id,
-            )
-            raise CredentialError()
+        await self._otp_service.verify_otp(
+            curr_merchant.id, OtpPurpose.ACCOUNT_DEACTIVATION, deactivate_payload.otp_code
+        )
 
-        # soft delete: data is kept so the merchant can reactivate
+        # soft delete: data is kept so the merchant can reactivate; one merchant row
+        # holds both the password and the google sign in, so both stop working
         curr_merchant.is_active = False
         curr_merchant.deactivated_at = datetime.now(UTC)
         curr_merchant.updated_at = curr_merchant.deactivated_at
@@ -534,28 +594,227 @@ class AuthService:
 
         sentry_logger.info("Merchant {merchant_id} account deactivated", merchant_id=merchant_id)
 
-    async def reactivate_account(
-        self, email_login: EmailLogin, merchant_service: MerchantService, security: Security
-    ) -> tuple[str, str]:
-        merchant: Merchant = await self._authenticate(
-            email_login.email, email_login.password, merchant_service, security
+    async def request_reactivation(
+        self, reactivate_request: ReactivateRequest, merchant_service: MerchantService
+    ):
+        merchant: Merchant | None = await merchant_service._get_merchant(
+            email=reactivate_request.email
         )
 
-        if not merchant.is_verified:
-            raise EmailNotVerifiedError()
+        # same response whether or not the email exists, so it can not be probed.
+        # google only accounts (no password) reactivate through google sign in instead
+        if (
+            not merchant
+            or not merchant.hashed_password
+            or not merchant.is_verified
+            or merchant.is_active
+        ):
+            sentry_logger.info("Reactivation requested for no eligible merchant")
+            return
 
-        if not merchant.is_active:
-            merchant.is_active = True
-            merchant.deactivated_at = None
-            merchant.updated_at = datetime.now(UTC)
-            await merchant_service.update_merchant(merchant, commit=True)
+        await self._send_otp(merchant, OtpPurpose.ACCOUNT_REACTIVATION)
 
-        access_token, refresh_token = await self._create_session(
-            merchant.id, UserType.EMAIL, security
-        )
+    async def _reactivate(self, merchant: Merchant, merchant_service: MerchantService):
+        merchant.is_active = True
+        merchant.deactivated_at = None
+        merchant.updated_at = datetime.now(UTC)
+        await merchant_service.update_merchant(merchant, commit=True)
 
         sentry_logger.info(
             "Merchant {merchant_id} account reactivated", merchant_id=str(merchant.id)
+        )
+
+    async def reactivate_account(
+        self, reactivate_payload: Reactivate, merchant_service: MerchantService, security: Security
+    ) -> tuple[str, str]:
+        """Reactivate a password account with an emailed code, then sign in"""
+        merchant: Merchant | None = await merchant_service._get_merchant(
+            email=reactivate_payload.email
+        )
+
+        if (
+            not merchant
+            or not merchant.hashed_password
+            or not merchant.is_verified
+            or merchant.is_active
+        ):
+            sentry_logger.error("Reactivation otp received for no eligible merchant")
+            raise InvalidOtpError()
+
+        await self._otp_service.verify_otp(
+            merchant.id, OtpPurpose.ACCOUNT_REACTIVATION, reactivate_payload.otp_code
+        )
+
+        await self._reactivate(merchant, merchant_service)
+
+        # signed in through the inbox, not the password
+        return await self._create_session(merchant.id, UserType.EMAIL_CODE, security)
+
+    async def _create_sign_up_token(self, google_id: str, email: str) -> str:
+        """Hold the google profile until the merchant gives a business name"""
+        return await self._create_one_time_token(
+            "google_sign_up",
+            json.dumps({"google_id": google_id, "email": email}),
+            GOOGLE_SIGN_UP_TOKEN_TTL,
+        )
+
+    async def _link_google(self, merchant: Merchant, google_id: str, email: str) -> Merchant:
+        merchant.google_id = google_id
+        merchant.google_email = email
+        merchant.updated_at = datetime.now(UTC)
+        merchant = await self._merchant_service.update_merchant(merchant, commit=True)
+
+        sentry_logger.info("Google linked to merchant {merchant_id}", merchant_id=str(merchant.id))
+
+        return merchant
+
+    async def handle_google_callback(
+        self, userinfo: dict, intent: GoogleSignInIntent, uow: UnitOfWorkRepository
+    ) -> dict[str, str]:
+        """Decide what the frontend receives after google confirms the merchant.
+
+        Returns one query parameter for the redirect to the frontend:
+        code (existing merchant, exchanged for tokens), signup_token (new merchant,
+        completed with a business name) or error.
+        """
+        await self._uow_merchant(uow)
+
+        google_id: str | None = userinfo.get("sub")
+        email: str = (userinfo.get("email") or "").lower()
+
+        # an unverified google email proves nothing about the inbox
+        if not google_id or not email or not userinfo.get("email_verified"):
+            sentry_logger.error("Google sign in with an unverified email")
+            return {"error": GoogleSignInError.EMAIL_NOT_VERIFIED}
+
+        merchant: Merchant | None = await self._merchant_service._get_merchant(google_id=google_id)
+
+        if not merchant:
+            email_merchant: Merchant | None = await self._merchant_service._get_merchant(
+                email=email
+            )
+
+            if not email_merchant or not email_merchant.is_verified:
+                # no account, or an unverified one (anyone can register any email, so it
+                # is not trusted): finish as a new sign up, which replaces the unverified one
+                return {"signup_token": await self._create_sign_up_token(google_id, email)}
+
+            # verified account with the same email: both sides proved the inbox, so google
+            # is linked and the merchant is signed in below like any returning merchant
+            merchant = await self._link_google(email_merchant, google_id, email)
+
+        if not merchant.is_active:
+            if intent != GoogleSignInIntent.REACTIVATE:
+                return {"error": GoogleSignInError.ACCOUNT_DEACTIVATED}
+
+            await self._reactivate(merchant, self._merchant_service)
+
+        code: str = await self._create_one_time_token(
+            "google_sign_in", str(merchant.id), GOOGLE_SIGN_IN_CODE_TTL
+        )
+
+        sentry_logger.info(
+            "Google sign in confirmed for merchant {merchant_id}", merchant_id=str(merchant.id)
+        )
+
+        return {"code": code}
+
+    async def exchange_google_code(
+        self,
+        exchange_payload: GoogleSignInExchange,
+        merchant_service: MerchantService,
+        security: Security,
+    ) -> tuple[str, str]:
+        merchant_id: str = await self._use_one_time_token("google_sign_in", exchange_payload.code)
+        merchant: Merchant | None = await merchant_service._get_merchant(id=UUID(merchant_id))
+
+        if not merchant:
+            raise InvalidOAuthCodeError()
+        if not merchant.is_active:
+            raise AccountDeactivatedError()
+
+        access_token, refresh_token = await self._create_session(
+            merchant.id, UserType.GOOGLE, security
+        )
+
+        sentry_logger.info(
+            "Google sign in completed for merchant {merchant_id}", merchant_id=merchant_id
+        )
+
+        return access_token, refresh_token
+
+    async def complete_google_sign_up(
+        self, sign_up_payload: GoogleSignUpComplete, security: Security, uow: UnitOfWorkRepository
+    ) -> tuple[str, str]:
+        profile: dict = json.loads(
+            await self._use_one_time_token("google_sign_up", sign_up_payload.signup_token)
+        )
+        email: str = profile["email"]
+        replaced_unverified: bool = False
+
+        try:
+            await self._uow_merchant_settings_onboarding(uow)
+
+            existing_merchant: Merchant | None = await self._merchant_service._get_merchant(
+                email=email
+            )
+
+            if existing_merchant and existing_merchant.is_verified:
+                # verified since the callback; signing in with google again links it
+                raise MerchantExistsError()
+
+            if existing_merchant:
+                # unverified email account: nothing of it is trusted. Its password is wiped
+                # so whoever registered it can not sign in to the now verified account
+                existing_merchant.hashed_password = None
+                existing_merchant.business_name = sign_up_payload.business_name
+                existing_merchant.google_id = profile["google_id"]
+                existing_merchant.google_email = email
+                existing_merchant.is_verified = True
+                existing_merchant.updated_at = datetime.now(UTC)
+
+                merchant: Merchant = await self._merchant_service.update_merchant(existing_merchant)
+                replaced_unverified = True
+            else:
+                merchant = MerchantInDB(
+                    email=email,
+                    google_id=profile["google_id"],
+                    google_email=email,
+                    business_name=sign_up_payload.business_name,
+                    is_verified=True,
+                )
+
+                # merchant, settings and onboarding are created together or not at all
+                merchant: Merchant = await self._merchant_service.create_merchant(merchant)
+                await self._settings_service.create_merchant_settings(
+                    MerchantSettingsInDB(merchant_id=merchant.id)
+                )
+                await self._onboarding_service.create_onboarding(
+                    MerchantOnboardingInDB(merchant_id=merchant.id)
+                )
+
+            await self._uow.commit()
+        except Exception as exc:
+            await self._uow.rollback()
+
+            if isinstance(exc, MerchantExistsError):
+                sentry_logger.error("Merchant already exists for the google sign up")
+                raise
+
+            sentry_sdk.capture_exception(exc)
+            sentry_logger.error("Error occured while completing google sign up")
+            raise ServerError() from exc
+
+        if replaced_unverified:
+            # the pending email verification code is no longer needed
+            await self._otp_service.delete_otp(merchant.id, OtpPurpose.EMAIL_VERIFICATION)
+
+        access_token, refresh_token = await self._create_session(
+            merchant.id, UserType.GOOGLE, security
+        )
+
+        sentry_logger.info(
+            "Google sign up completed for merchant {merchant_id}", merchant_id=str(merchant.id)
         )
 
         return access_token, refresh_token

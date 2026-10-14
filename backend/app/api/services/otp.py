@@ -63,6 +63,19 @@ class OtpService:
             )
             raise ServerError() from exc
 
+    async def delete_otp(self, merchant_id: UUID, purpose: OtpPurpose):
+        """Discard a pending code, e.g. once the account no longer needs it"""
+        try:
+            await self._redis_repo.delete_key(self._otp_key(purpose, merchant_id))
+        except Exception as exc:
+            sentry_sdk.capture_exception(exc)
+            sentry_logger.error(
+                "Error occured while deleting {purpose} otp for merchant {merchant_id}",
+                purpose=purpose,
+                merchant_id=str(merchant_id),
+            )
+            raise ServerError() from exc
+
     async def verify_otp(self, merchant_id: UUID, purpose: OtpPurpose, code: str):
         try:
             result: int = await self._redis_repo.consume_code(
