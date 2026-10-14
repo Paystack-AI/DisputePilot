@@ -75,7 +75,7 @@ class TestConfigureNotifications:
         assert data["next_step"] == "initial_sync"
         assert data["initial_sync_status"] == "in_progress"
 
-        res = await async_client.patch("/settings", json={}, headers=auth_headers)
+        res = await async_client.get("/settings", headers=auth_headers)
         assert res.json()["data"]["notification_whatsapp"] == "+2348012345678"
         assert res.json()["data"]["notification_email"] is False
 
@@ -87,7 +87,7 @@ class TestConfigureNotifications:
         assert res.status_code == 200
         assert res.json()["data"]["next_step"] == "initial_sync"
 
-        res = await async_client.patch("/settings", json={}, headers=auth_headers)
+        res = await async_client.get("/settings", headers=auth_headers)
         assert res.json()["data"]["notification_email"] is True
         assert res.json()["data"]["notification_whatsapp"] is None
 

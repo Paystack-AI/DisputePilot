@@ -8,7 +8,102 @@ async def _patch(async_client: AsyncClient, headers: dict, payload: dict) -> Res
     return await async_client.patch("/settings", json=payload, headers=headers)
 
 
+class TestGetSettings:
+    @pytest.mark.asyncio
+    async def test_defaults(self, async_client: AsyncClient, auth_headers: dict):
+        res: Response = await async_client.get("/settings", headers=auth_headers)
+
+        assert res.status_code == 200
+        assert res.json()["data"] == {
+            "notification_whatsapp": None,
+            "notification_email": True,
+            "auto_reconciliation_tier1": True,
+            "default_reconciliation_range": 1,
+            "trust_public_enabled": False,
+            "trust_widget_enabled": False,
+            "timezone": "UTC",
+            "default_currency": "NGN",
+            "updated_at": None,
+        }
+
+    @pytest.mark.asyncio
+    async def test_reflects_updates(self, async_client: AsyncClient, auth_headers: dict):
+        await _patch(async_client, auth_headers, {"timezone": "Africa/Accra"})
+
+        res: Response = await async_client.get("/settings", headers=auth_headers)
+
+        assert res.json()["data"]["timezone"] == "Africa/Accra"
+        assert res.json()["data"]["updated_at"] is not None
+
+    @pytest.mark.asyncio
+    async def test_not_authenticated(self, async_client: AsyncClient):
+        res: Response = await async_client.get("/settings")
+
+        assert res.status_code == 401
+
+
+class TestWhatsappNumber:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "number, stored",
+        [
+            ("+2348031234567", "+2348031234567"),
+            # spacing and punctuation are normalised to E.164
+            ("+234 803 123 4567", "+2348031234567"),
+            ("+234-803-123-4567", "+2348031234567"),
+            ("+233241234567", "+233241234567"),
+            ("+254712345678", "+254712345678"),
+            ("+27821234567", "+27821234567"),
+        ],
+    )
+    async def test_valid_numbers(
+        self, async_client: AsyncClient, auth_headers: dict, number: str, stored: str
+    ):
+        res: Response = await _patch(async_client, auth_headers, {"notification_whatsapp": number})
+
+        assert res.status_code == 200
+        assert res.json()["data"]["notification_whatsapp"] == stored
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "number",
+        [
+            "08031234567",  # no country code
+            "+2341234",  # too short to exist
+            "+442071838750",  # london landline, can not receive whatsapp
+            "not a number",
+        ],
+    )
+    async def test_invalid_numbers(
+        self, async_client: AsyncClient, auth_headers: dict, number: str
+    ):
+        res: Response = await _patch(async_client, auth_headers, {"notification_whatsapp": number})
+
+        assert res.status_code == 422
+        assert res.json()["error"]["code"] == "VALIDATION_FAILED"
+
+
 class TestUpdateSettings:
+    @pytest.mark.asyncio
+    async def test_notification_preferences_after_onboarding(
+        self, async_client: AsyncClient, auth_headers: dict
+    ):
+        await async_client.post(
+            "/auth/paystack/connect", json={"secret_key": TEST_SECRET_KEY}, headers=auth_headers
+        )
+        await async_client.post("/onboarding/notifications", json={}, headers=auth_headers)
+
+        # once the onboarding step is done, preferences are still changed here
+        res: Response = await _patch(
+            async_client,
+            auth_headers,
+            {"notification_whatsapp": "+2348031234567", "notification_email": False},
+        )
+
+        assert res.status_code == 200
+        assert res.json()["data"]["notification_whatsapp"] == "+2348031234567"
+        assert res.json()["data"]["notification_email"] is False
+
     @pytest.mark.asyncio
     async def test_update(self, async_client: AsyncClient, auth_headers: dict):
         payload: dict = {
