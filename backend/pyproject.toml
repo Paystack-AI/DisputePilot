@@ -10,6 +10,7 @@ dependencies = [
     "cryptography>=50.0.1",
     "fastapi-limiter>=0.2.0",
     "fastapi[all]>=0.115",
+    "phonenumbers>=9.0.41",
     "psycopg2>=2.9.13",
     "pwdlib[argon2]>=0.3.1",
     "pyrate-limiter",

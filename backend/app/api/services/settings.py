@@ -24,6 +24,32 @@ class SettingsService:
         settings_repo = self._uow.repo(MerchantSettingsRepository)
         self._settings_service = MerchantSettingsService(settings_repo=settings_repo)
 
+    async def _get_settings(self, merchant: Merchant) -> MerchantSettings:
+        settings: MerchantSettings | None = await self._settings_service._get_merchant_settings(
+            merchant_id=merchant.id
+        )
+
+        if not settings:
+            sentry_logger.error(
+                "Settings missing for merchant {merchant_id}", merchant_id=str(merchant.id)
+            )
+            raise ServerError()
+
+        return settings
+
+    async def get_settings(
+        self, curr_merchant: Merchant, uow: UnitOfWorkRepository
+    ) -> SettingsResponse:
+        await self._uow_settings(uow)
+
+        settings: MerchantSettings = await self._get_settings(curr_merchant)
+
+        sentry_logger.info(
+            "Merchant {merchant_id} settings retrieved", merchant_id=str(curr_merchant.id)
+        )
+
+        return SettingsResponse.model_validate(settings)
+
     async def update_settings(
         self, curr_merchant: Merchant, update_payload: SettingsUpdate, uow: UnitOfWorkRepository
     ) -> SettingsResponse:
@@ -33,15 +59,7 @@ class SettingsService:
         # unset fields are left alone; an explicit null whatsapp number disables whatsapp
         changes: dict = update_payload.model_dump(exclude_unset=True)
 
-        settings: MerchantSettings | None = await self._settings_service._get_merchant_settings(
-            merchant_id=curr_merchant.id
-        )
-
-        if not settings:
-            sentry_logger.error(
-                "Settings missing for merchant {merchant_id}", merchant_id=merchant_id
-            )
-            raise ServerError()
+        settings: MerchantSettings = await self._get_settings(curr_merchant)
 
         if changes:
             for field, value in changes.items():

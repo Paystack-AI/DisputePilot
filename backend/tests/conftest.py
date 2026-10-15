@@ -188,4 +188,5 @@ async def login(async_client: AsyncClient, verify: Response) -> Response:
 
 @pytest_asyncio.fixture
 async def auth_headers(login: Response) -> dict:
+    assert login.status_code == 200, login.text
     return {"Authorization": f"Bearer {login.json()['data']['access_token']}"}
