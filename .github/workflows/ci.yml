@@ -87,6 +87,7 @@ jobs:
       GOOGLE_CLIENT_ID: ci-google-client-id
       GOOGLE_CLIENT_SECRET: ci-google-client-secret  # pragma: allowlist secret
       ARGON2_PASSWORD_PEPPER: ci-argon2-pepper  # pragma: allowlist secret
+      OTP_SECRET_KEY: ci-otp-secret-key   # pragma: allowlist secret
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
