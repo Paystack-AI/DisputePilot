@@ -27,6 +27,17 @@ from app.api.services.customers import CustomerService, is_merchant_email
 from app.api.services.order_management import order_response
 from app.core.exceptions import CustomerEmailLockedError, CustomerExistsError, NotFoundError
 
+EMPTY_STATS: dict = {
+    "transaction_count": 0,
+    "payment_count": 0,
+    "reconciled_count": 0,
+    "fulfilled_count": 0,
+    "first_payment_at": None,
+    "last_payment_at": None,
+    "dispute_count": 0,
+    "order_count": 0,
+}
+
 
 def _percent(part: int, whole: int, digits: int | None = None) -> float | int | None:
     if not whole:
@@ -35,8 +46,10 @@ def _percent(part: int, whole: int, digits: int | None = None) -> float | int | 
 
 
 def _customer_stats(stats: dict) -> CustomerStats:
+    # transaction_count (any status) is internal: it only decides whether the email is locked
+    public: dict = {key: value for key, value in stats.items() if key != "transaction_count"}
     return CustomerStats(
-        **stats,
+        **public,
         reconciled_pct=_percent(stats["reconciled_count"], stats["payment_count"]),
         dispute_rate=_percent(stats["dispute_count"], stats["payment_count"], 1),
     )
@@ -115,13 +128,24 @@ class CustomerLedgerService:
 
         return customers, PageMeta.build(query, total)
 
+    async def _get_customer_with_stats(
+        self, merchant_id: UUID, customer_id: UUID, for_update: bool = False
+    ) -> tuple[Customer, dict]:
+        found: tuple[Customer, dict] | None = await self._customer_repo.get_with_stats(
+            merchant_id, customer_id, for_update=for_update
+        )
+
+        if not found:
+            raise NotFoundError("Customer")
+
+        return found
+
     async def get_customer(
         self, curr_merchant: Merchant, customer_id: UUID, uow: UnitOfWorkRepository
     ) -> CustomerResponse:
         await self._uow_customers(uow)
 
-        customer: Customer = await self._get_customer(curr_merchant.id, customer_id)
-        stats: dict = await self._customer_repo.get_stats(curr_merchant.id, customer.id)
+        customer, stats = await self._get_customer_with_stats(curr_merchant.id, customer_id)
 
         return _customer_response(customer, stats)
 
@@ -131,13 +155,6 @@ class CustomerLedgerService:
         await self._uow_customers(uow)
 
         merchant_id: UUID = curr_merchant.id
-
-        if payload.email:
-            existing: Customer | None = await self._customer_service._get_customer(
-                merchant_id=merchant_id, email=payload.email
-            )
-            if existing:
-                raise CustomerExistsError(str(existing.id))
 
         try:
             customer: Customer = await self._customer_service.create_customer(
@@ -151,7 +168,7 @@ class CustomerLedgerService:
                 commit=True,
             )
         except IntegrityError as exc:
-            # created by a concurrent request or sync since the check above
+            # the unique (merchant, email) constraint is the check, including concurrent creates
             await self._raise_email_taken(merchant_id, payload.email, exc)
 
         sentry_logger.info(
@@ -160,8 +177,8 @@ class CustomerLedgerService:
             customer_id=str(customer.id),
         )
 
-        stats: dict = await self._customer_repo.get_stats(merchant_id, customer.id)
-        return _customer_response(customer, stats)
+        # a new customer has no payments, orders or disputes yet
+        return _customer_response(customer, EMPTY_STATS)
 
     async def update_customer(
         self,
@@ -175,13 +192,16 @@ class CustomerLedgerService:
         merchant_id: UUID = curr_merchant.id
         changes: dict = payload.model_dump(exclude_unset=True)
 
-        customer: Customer = await self._get_customer(merchant_id, customer_id, for_update=True)
+        # contact fields do not affect the stats, so the ones read here are returned as they are
+        customer, stats = await self._get_customer_with_stats(
+            merchant_id, customer_id, for_update=True
+        )
 
         email_changed: bool = "email" in changes and changes["email"] != customer.email
 
         if email_changed:
             # synced payments are tied to the customer by email
-            if await self._customer_repo.has_transactions(customer.id):
+            if stats["transaction_count"]:
                 raise CustomerEmailLockedError()
 
             if changes["email"]:
@@ -225,7 +245,6 @@ class CustomerLedgerService:
             customer_id=str(customer_id),
         )
 
-        stats: dict = await self._customer_repo.get_stats(merchant_id, customer.id)
         return _customer_response(customer, stats)
 
     async def list_customer_transactions(

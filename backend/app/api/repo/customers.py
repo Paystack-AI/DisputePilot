@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Select, and_, exists, func, or_, select
+from sqlalchemy import Select, and_, exists, func, or_, select, true
 from sqlalchemy.dialects.postgresql import insert
 
 from app.api.models.customers import Customer
@@ -156,50 +156,59 @@ class CustomerRepository(BaseRepository[CustomerInDB, Customer]):
             for row in rows
         ], total
 
-    async def get_stats(self, merchant_id: UUID, customer_id: UUID) -> dict:
+    async def get_with_stats(
+        self, merchant_id: UUID, customer_id: UUID, for_update: bool = False
+    ) -> tuple[Customer, dict] | None:
+        """The merchant's customer and their ledger counts in one query. for_update locks
+        only the customer row"""
+        # one aggregate row for the customer's payments, joined onto the customer
         payments = (
-            await self._async_session.execute(
-                select(
-                    func.count().filter(_SUCCESS).label("payment_count"),
-                    func.count().filter(and_(_SUCCESS, _RECONCILED)).label("reconciled_count"),
-                    func.count()
-                    .filter(
-                        _SUCCESS,
-                        exists().where(Fulfillment.order_id == Transaction.order_id),
-                    )
-                    .label("fulfilled_count"),
-                    func.min(Transaction.paid_at).filter(_SUCCESS).label("first_payment_at"),
-                    func.max(Transaction.paid_at).filter(_SUCCESS).label("last_payment_at"),
-                ).where(
-                    Transaction.merchant_id == merchant_id,
-                    Transaction.customer_id == customer_id,
-                )
+            select(
+                func.count().label("transaction_count"),  # any status; locks the email
+                func.count().filter(_SUCCESS).label("payment_count"),
+                func.count().filter(and_(_SUCCESS, _RECONCILED)).label("reconciled_count"),
+                func.count()
+                .filter(_SUCCESS, exists().where(Fulfillment.order_id == Transaction.order_id))
+                .label("fulfilled_count"),
+                func.min(Transaction.paid_at).filter(_SUCCESS).label("first_payment_at"),
+                func.max(Transaction.paid_at).filter(_SUCCESS).label("last_payment_at"),
             )
-        ).one()
-
-        dispute_count: int = await self._async_session.scalar(
+            .where(Transaction.merchant_id == merchant_id, Transaction.customer_id == customer_id)
+            .subquery("payments")
+        )
+        dispute_count = (
             select(func.count(Dispute.id))
             .join(Transaction, Dispute.transaction_id == Transaction.id)
             .where(Dispute.merchant_id == merchant_id, Transaction.customer_id == customer_id)
+            .scalar_subquery()
+            .label("dispute_count")
+        )
+        order_count = (
+            select(func.count(Order.id))
+            .where(Order.merchant_id == merchant_id, Order.customer_id == customer_id)
+            .scalar_subquery()
+            .label("order_count")
         )
 
-        order_count: int = await self._async_session.scalar(
-            select(func.count(Order.id)).where(
-                Order.merchant_id == merchant_id, Order.customer_id == customer_id
-            )
+        stmt: Select = (
+            select(self.model, payments, dispute_count, order_count)
+            .join(payments, true())
+            .where(self.model.id == customer_id, self.model.merchant_id == merchant_id)
         )
+        if for_update:
+            stmt = stmt.with_for_update(of=self.model)
 
-        return {
-            "payment_count": payments.payment_count,
-            "reconciled_count": payments.reconciled_count,
-            "fulfilled_count": payments.fulfilled_count,
-            "first_payment_at": payments.first_payment_at,
-            "last_payment_at": payments.last_payment_at,
-            "dispute_count": dispute_count,
-            "order_count": order_count,
+        row = (await self._async_session.execute(stmt)).one_or_none()
+        if row is None:
+            return None
+
+        return row[0], {
+            "transaction_count": row.transaction_count,
+            "payment_count": row.payment_count,
+            "reconciled_count": row.reconciled_count,
+            "fulfilled_count": row.fulfilled_count,
+            "first_payment_at": row.first_payment_at,
+            "last_payment_at": row.last_payment_at,
+            "dispute_count": row.dispute_count,
+            "order_count": row.order_count,
         }
-
-    async def has_transactions(self, customer_id: UUID) -> bool:
-        return await self._async_session.scalar(
-            select(exists().where(Transaction.customer_id == customer_id))
-        )

@@ -93,14 +93,15 @@ class TestCreateOrder:
         first: dict = await _order(
             async_client,
             auth_headers,
-            {"amount": 1000, "customer_email": "Tunde@Mail.com", "customer_name": "Tunde Bello"},
+            {"amount": 1000, "customer_email": "Tunde@Mail.com"},
         )
         second: dict = await _order(
             async_client, auth_headers, {"amount": 2000, "customer_email": "tunde@mail.com"}
         )
 
         assert first["customer"]["email"] == "tunde@mail.com"
-        assert first["customer"]["name"] == "Tunde Bello"
+        # names are set on the customer itself, not through orders
+        assert first["customer"]["name"] is None
         assert second["customer"]["id"] == first["customer"]["id"]
 
         res: Response = await async_client.get("/customers", headers=auth_headers)
@@ -204,7 +205,7 @@ class TestCreateOrder:
                 "customer_id": "0192f0c1-0000-7000-8000-000000000000",
                 "customer_email": "amina@example.com",
             },
-            {"amount": 1000, "customer_name": "Amina"},
+            {"amount": 1000, "customer_name": "Amina"},  # not accepted on orders
         ],
     )
     async def test_invalid_payload(

@@ -33,11 +33,25 @@ class OrderRepository(BaseRepository[OrderInDB, Order]):
     def _is_linked(self):
         return exists().where(Transaction.order_id == self.model.id).label("is_linked")
 
-    async def is_linked(self, order_id: UUID) -> bool:
-        """Linked to a synced payment by reconciliation"""
-        return await self._async_session.scalar(
-            select(exists().where(Transaction.order_id == order_id))
+    async def get_with_customer(
+        self, merchant_id: UUID, order_id: UUID, for_update: bool = False
+    ) -> tuple[Order, Customer | None, bool] | None:
+        """The merchant's order, its customer and whether it is linked to a synced payment,
+        in one query. for_update locks only the order row (postgres can not lock the
+        nullable side of an outer join, and the customer does not need it)"""
+        stmt: Select = (
+            select(self.model, Customer, self._is_linked())
+            .outerjoin(Customer, Customer.id == self.model.customer_id)
+            .where(self.model.id == order_id, self.model.merchant_id == merchant_id)
         )
+        if for_update:
+            stmt = stmt.with_for_update(of=self.model)
+
+        row = (await self._async_session.execute(stmt)).one_or_none()
+        if row is None:
+            return None
+
+        return row[0], row[1], row[2]
 
     async def list_orders(
         self,

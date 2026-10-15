@@ -37,7 +37,6 @@ class OrderCreate(AuthBase):
     # a customer email lets reconciliation match the payment by email (tier 2)
     customer_id: UUID | None = None
     customer_email: LowerEmail | None = None
-    customer_name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = Field(None, max_length=2000)
     amount: int = Field(..., gt=0)  # smallest currency unit, e.g. kobo
     currency: Currency | None = None  # defaults to the merchant's default currency
@@ -47,8 +46,6 @@ class OrderCreate(AuthBase):
     def validate_customer(self) -> "OrderCreate":
         if self.customer_id and self.customer_email:
             raise ValueError("send customer_id or customer_email, not both")
-        if self.customer_name and not self.customer_email:
-            raise ValueError("customer_name is only used with customer_email")
         return self
 
 

@@ -102,16 +102,17 @@ class OrderManagementService:
 
     async def _get_order(
         self, merchant_id: UUID, order_id: UUID, for_update: bool = False
-    ) -> Order:
+    ) -> tuple[Order, Customer | None, bool]:
+        """The order with its customer and link state"""
         # other merchants' orders are reported as missing, so existence is not revealed
-        order: Order | None = await self._order_service._get_order(
-            for_update=for_update, id=order_id, merchant_id=merchant_id
-        )
+        found: (
+            tuple[Order, Customer | None, bool] | None
+        ) = await self._order_repo.get_with_customer(merchant_id, order_id, for_update=for_update)
 
-        if not order:
+        if not found:
             raise NotFoundError("Order")
 
-        return order
+        return found
 
     async def _get_customer(self, merchant_id: UUID, customer_id: UUID | None) -> Customer | None:
         if not customer_id:
@@ -160,9 +161,9 @@ class OrderManagementService:
 
         merchant_id: UUID = curr_merchant.id
 
-        order: Order = await self._get_order(merchant_id, order_id)
-        customer: Customer | None = await self._get_customer(merchant_id, order.customer_id)
+        order, customer, is_linked = await self._get_order(merchant_id, order_id)
 
+        # separate queries: joining two one-to-many tables would multiply their rows
         transactions = await self._uow.repo(TransactionRepository).list_for_order(
             merchant_id, order.id
         )
@@ -171,7 +172,7 @@ class OrderManagementService:
         )
 
         return OrderDetail(
-            **order_response(order, customer, bool(transactions)).model_dump(),
+            **order_response(order, customer, is_linked).model_dump(),
             transactions=[TransactionSummary.model_validate(t) for t in transactions],
             fulfillments=[FulfillmentSummary.model_validate(f) for f in fulfillments],
         )
@@ -190,7 +191,6 @@ class OrderManagementService:
             customer = await self._customer_service.get_or_create_customer(
                 CustomerInDB(
                     merchant_id=merchant_id,
-                    name=payload.customer_name,
                     email=payload.customer_email,
                     is_shared=is_merchant_email(curr_merchant, payload.customer_email),
                 )
@@ -234,8 +234,7 @@ class OrderManagementService:
         merchant_id: UUID = curr_merchant.id
         changes: dict = payload.model_dump(exclude_unset=True)
 
-        order: Order = await self._get_order(merchant_id, order_id, for_update=True)
-        is_linked: bool = await self._order_repo.is_linked(order.id)
+        order, customer, is_linked = await self._get_order(merchant_id, order_id, for_update=True)
 
         # only fields whose value actually changes count, so resending the order is harmless
         changes = {
@@ -251,8 +250,9 @@ class OrderManagementService:
         ):
             raise OrderStatusTransitionError(order.status, changes["status"])
 
-        customer_id: UUID | None = changes.get("customer_id", order.customer_id)
-        customer: Customer | None = await self._get_customer(merchant_id, customer_id)
+        # only a different customer needs looking up (and checking it is the merchant's)
+        if "customer_id" in changes:
+            customer = await self._get_customer(merchant_id, changes["customer_id"])
 
         if changes:
             for field, value in changes.items():
@@ -277,13 +277,12 @@ class OrderManagementService:
 
         merchant_id: UUID = curr_merchant.id
 
-        order: Order = await self._get_order(merchant_id, order_id, for_update=True)
-        customer: Customer | None = await self._get_customer(merchant_id, order.customer_id)
+        order, customer, is_linked = await self._get_order(merchant_id, order_id, for_update=True)
 
         if order.status == OrderStatus.CANCELLED:
-            return order_response(order, customer, False)
+            return order_response(order, customer, is_linked)
 
-        if await self._order_repo.is_linked(order.id):
+        if is_linked:
             raise OrderLinkedError(["status"])
 
         if (order.status, OrderStatus.CANCELLED) not in MERCHANT_STATUS_TRANSITIONS:
