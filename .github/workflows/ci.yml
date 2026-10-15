@@ -70,8 +70,34 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # The test suite needs real Postgres and Redis; POSTGRES_DB creates the
+    # database that ASYNC_TEST_DB_URL points at.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres  # pragma: allowlist secret
+          POSTGRES_DB: disputepilot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     # Placeholder settings so app.core.config.Settings loads in CI. These are
-    # not real credentials; tests must not rely on them reaching real services.
+    # not real credentials. Only the test DB and Redis are backed by the
+    # services above; nothing else should be reached during tests.
     env:
       ENVIRONMENT: test
       ASYNC_DB_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/disputepilot  # pragma: allowlist secret
