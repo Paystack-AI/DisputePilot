@@ -42,3 +42,6 @@ Thumbs.db
 *.log
 build/
 .cache/
+
+# --- redis ---
+dump.rdb

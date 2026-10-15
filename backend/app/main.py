@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.routers import router
 from app.core.config import get_settings
 from app.core.exception_handlers import ExceptionHandler
 from app.database.session import redis_client
@@ -27,6 +28,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+app.include_router(router.router)
 
 app.add_middleware(RequestIDMiddleware)
 

@@ -3,7 +3,20 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api.schemas.response import Error, ErrorResponse
-from app.core.exceptions import RateLimitExceeded, ServerError, exception_handler
+from app.core.exceptions import (
+    AccountDeactivatedError,
+    AuthenticationError,
+    CredentialError,
+    EmailNotVerifiedError,
+    InvalidOtpError,
+    MerchantExistsError,
+    OnboardingStepMismatchError,
+    OtpAttemptsExceededError,
+    RateLimitExceeded,
+    ServerError,
+    TokenExpiredError,
+    exception_handler,
+)
 
 
 class ExceptionHandler:
@@ -33,6 +46,52 @@ class ExceptionHandler:
             exception_handler(
                 500,
                 {"message": "Internal server error occured while processing request"},
+            ),
+        )
+        self.app.add_exception_handler(
+            AuthenticationError,
+            exception_handler(401, {"message": "Merchant not authenticated."}),
+        )
+        self.app.add_exception_handler(
+            TokenExpiredError,
+            exception_handler(401, {"message": "Token has expired."}),
+        )
+        self.app.add_exception_handler(
+            CredentialError,
+            exception_handler(400, {"message": "Invalid credentials!"}),
+        )
+        self.app.add_exception_handler(
+            MerchantExistsError,
+            exception_handler(
+                409,
+                {"message": "A merchant already exists with the provided details."},
+            ),
+        )
+        self.app.add_exception_handler(
+            InvalidOtpError,
+            exception_handler(400, {"message": "Invalid or expired code."}),
+        )
+        self.app.add_exception_handler(
+            OtpAttemptsExceededError,
+            exception_handler(
+                400, {"message": "Too many wrong attempts. Request a new code to continue."}
+            ),
+        )
+        self.app.add_exception_handler(
+            EmailNotVerifiedError,
+            exception_handler(403, {"message": "Verify your email to continue."}),
+        )
+        self.app.add_exception_handler(
+            AccountDeactivatedError,
+            exception_handler(
+                403, {"message": "This account is deactivated. Reactivate it to continue."}
+            ),
+        )
+        self.app.add_exception_handler(
+            OnboardingStepMismatchError,
+            exception_handler(
+                409,
+                {"message": "This onboarding step is not available from {current_step}."},
             ),
         )
         self.app.add_exception_handler(
