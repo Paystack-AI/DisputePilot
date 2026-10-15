@@ -1,17 +1,14 @@
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, datetime
 from uuid import UUID
-from zoneinfo import ZoneInfo
 
 import sentry_sdk.logger as sentry_logger
 
 from app.api.models.customers import Customer
 from app.api.models.enums import OrderStatus
-from app.api.models.merchant_settings import MerchantSettings
 from app.api.models.merchants import Merchant
 from app.api.models.orders import Order
 from app.api.repo.customers import CustomerRepository
 from app.api.repo.fulfillments import FulfillmentRepository
-from app.api.repo.merchant_settings import MerchantSettingsRepository
 from app.api.repo.orders import OrderRepository
 from app.api.repo.transactions import TransactionRepository
 from app.api.repo.uow import UnitOfWorkRepository
@@ -28,13 +25,11 @@ from app.api.schemas.orders import (
 from app.api.schemas.pagination import PageMeta
 from app.api.schemas.transactions import TransactionSummary
 from app.api.services.customers import CustomerService, is_merchant_email
-from app.api.services.merchant_settings import MerchantSettingsService
 from app.api.services.orders import OrderService
 from app.core.exceptions import (
     NotFoundError,
     OrderLinkedError,
     OrderStatusTransitionError,
-    ServerError,
 )
 
 # a linked order is the other half of a reconciliation match; changing these would
@@ -64,11 +59,6 @@ def order_response(order: Order, customer: Customer | None, is_linked: bool) -> 
     )
 
 
-def _day_start(day: date, timezone: ZoneInfo) -> datetime:
-    """Start of a day in the merchant's timezone, as UTC"""
-    return datetime.combine(day, time.min, tzinfo=timezone).astimezone(UTC)
-
-
 class OrderManagementService:
     def __init__(self):
         self._uow = None
@@ -83,22 +73,6 @@ class OrderManagementService:
         self._order_service = OrderService(order_repo=self._order_repo)
 
         self._customer_service = CustomerService(customer_repo=self._uow.repo(CustomerRepository))
-        self._settings_service = MerchantSettingsService(
-            settings_repo=self._uow.repo(MerchantSettingsRepository)
-        )
-
-    async def _get_settings(self, merchant_id: UUID) -> MerchantSettings:
-        settings: MerchantSettings | None = await self._settings_service._get_merchant_settings(
-            merchant_id=merchant_id
-        )
-
-        if not settings:
-            sentry_logger.error(
-                "Settings missing for merchant {merchant_id}", merchant_id=str(merchant_id)
-            )
-            raise ServerError()
-
-        return settings
 
     async def _get_order(
         self, merchant_id: UUID, order_id: UUID, for_update: bool = False
@@ -132,22 +106,7 @@ class OrderManagementService:
     ) -> tuple[list[OrderResponse], PageMeta]:
         await self._uow_orders(uow)
 
-        created_from: datetime | None = None
-        created_before: datetime | None = None
-
-        if query.date_from or query.date_to:
-            # dates are days in the merchant's timezone; date_to includes the whole day
-            settings: MerchantSettings = await self._get_settings(curr_merchant.id)
-            timezone = ZoneInfo(settings.timezone)
-
-            if query.date_from:
-                created_from = _day_start(query.date_from, timezone)
-            if query.date_to:
-                created_before = _day_start(query.date_to + timedelta(days=1), timezone)
-
-        rows, total = await self._order_repo.list_orders(
-            curr_merchant.id, query, created_from, created_before
-        )
+        rows, total = await self._order_repo.list_orders(curr_merchant.id, query)
 
         orders: list[OrderResponse] = [
             order_response(order, customer, is_linked) for order, customer, is_linked in rows
@@ -196,11 +155,6 @@ class OrderManagementService:
                 )
             )
 
-        currency = payload.currency
-        if currency is None:
-            settings: MerchantSettings = await self._get_settings(merchant_id)
-            currency = settings.default_currency
-
         order: Order = await self._order_service.create_order(
             OrderInDB(
                 merchant_id=merchant_id,
@@ -208,7 +162,7 @@ class OrderManagementService:
                 order_number=payload.order_number,
                 description=payload.description,
                 amount=payload.amount,
-                currency=currency,
+                currency=payload.currency,
                 source=payload.source,
             ),
             commit=True,

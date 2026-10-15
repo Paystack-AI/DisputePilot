@@ -70,7 +70,7 @@ class OrderInDB(BaseModel):
     order_number: str | None = None
     description: str | None = None
     amount: int
-    currency: Currency
+    currency: Currency | None = None  # none: the merchant's default currency
     source: OrderSource
 
 

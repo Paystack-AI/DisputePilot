@@ -366,6 +366,13 @@ class TestListCustomers:
         assert [row["name"] for row in first.json()["data"]] == ["Customer 0", "Customer 1"]
         assert [row["name"] for row in last.json()["data"]] == ["Customer 4"]
 
+        # past the end there is no row to carry the window count; the total is still right
+        past: Response = await async_client.get(
+            "/customers", params={"limit": 2, "page": 9}, headers=auth_headers
+        )
+        assert past.json()["data"] == []
+        assert past.json()["meta"] == {"page": 9, "limit": 2, "total": 5, "total_pages": 3}
+
     @pytest.mark.asyncio
     async def test_only_own_customers(self, async_client: AsyncClient, auth_headers: dict):
         await _customer_id(async_client, auth_headers, {"name": "Amina"})

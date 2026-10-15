@@ -203,13 +203,7 @@ class CustomerLedgerService:
             # synced payments are tied to the customer by email
             if stats["transaction_count"]:
                 raise CustomerEmailLockedError()
-
-            if changes["email"]:
-                existing: Customer | None = await self._customer_service._get_customer(
-                    merchant_id=merchant_id, email=changes["email"]
-                )
-                if existing and existing.id != customer.id:
-                    raise CustomerExistsError(str(existing.id))
+            # a taken email is caught by the unique (merchant, email) constraint on update
 
         name: str | None = changes.get("name", customer.name)
         email: str | None = changes.get("email", customer.email)
@@ -256,12 +250,15 @@ class CustomerLedgerService:
     ) -> tuple[list[TransactionSummary], PageMeta]:
         await self._uow_customers(uow)
 
-        customer: Customer = await self._get_customer(curr_merchant.id, customer_id)
-
         transaction_repo: TransactionRepository = self._uow.repo(TransactionRepository)
         rows, total = await transaction_repo.list_for_customer(
-            curr_merchant.id, customer.id, params
+            curr_merchant.id, customer_id, params
         )
+
+        # rows are already scoped to the merchant, so only an empty page needs to tell an
+        # unknown customer (404) from one without payments
+        if not rows:
+            await self._get_customer(curr_merchant.id, customer_id)
 
         transactions: list[TransactionSummary] = [
             TransactionSummary.model_validate(row) for row in rows
@@ -277,11 +274,14 @@ class CustomerLedgerService:
     ) -> tuple[list[OrderResponse], PageMeta]:
         await self._uow_customers(uow)
 
-        customer: Customer = await self._get_customer(curr_merchant.id, customer_id)
-
         order_repo: OrderRepository = self._uow.repo(OrderRepository)
-        query = OrderListQuery(page=params.page, limit=params.limit, customer_id=customer.id)
+        query = OrderListQuery(page=params.page, limit=params.limit, customer_id=customer_id)
         rows, total = await order_repo.list_orders(curr_merchant.id, query)
+
+        # rows are already scoped to the merchant, so only an empty page needs to tell an
+        # unknown customer (404) from one without orders
+        if not rows:
+            await self._get_customer(curr_merchant.id, customer_id)
 
         orders: list[OrderResponse] = [
             order_response(order, order_customer, is_linked)

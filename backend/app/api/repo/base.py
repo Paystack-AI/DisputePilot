@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
-from sqlalchemy import select, update
+from sqlalchemy import Row, Select, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.models.base import Base
@@ -70,6 +70,26 @@ class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
 
         res = await self._async_session.execute(stmt)
         return res.scalar()
+
+    async def _paginate(
+        self, stmt: Select, count_stmt: Select, page: int, limit: int
+    ) -> tuple[list[Row], int]:
+        """One page of stmt and the total matching it, in one query: the total rides on each
+        row as a window count. Only a page past the end (no rows to carry it) runs count_stmt.
+        Each row gets total_count appended as its last column"""
+        rows = (
+            await self._async_session.execute(
+                stmt.add_columns(func.count().over().label("total_count"))
+                .offset((page - 1) * limit)
+                .limit(limit)
+            )
+        ).all()
+
+        if rows:
+            return rows, rows[0].total_count
+        if page == 1:
+            return [], 0
+        return [], await self._async_session.scalar(count_stmt)
 
     async def update_records(self, fields_to_update: dict[str, Any], **filters):
         filter_conditions: list[Any] = self._get_filters(**filters)

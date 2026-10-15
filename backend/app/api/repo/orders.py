@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import date, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Select, exists, func, or_, select
+from sqlalchemy import TIMESTAMP, Select, cast, exists, func, or_, select
 
 from app.api.models.customers import Customer
+from app.api.models.merchant_settings import MerchantSettings
 from app.api.models.orders import Order
 from app.api.models.transactions import Transaction
 from app.api.repo.base import LIKE_ESCAPE, BaseRepository, contains_pattern
@@ -16,7 +17,14 @@ class OrderRepository(BaseRepository[OrderInDB, Order]):
 
     @staticmethod
     def _entity_to_model(entity: OrderInDB) -> model:
-        return Order(**entity.model_dump())
+        order = Order(**entity.model_dump(exclude={"currency"}))
+        # no currency given: the merchant's default, read inside the INSERT itself
+        order.currency = entity.currency or (
+            select(MerchantSettings.default_currency)
+            .where(MerchantSettings.merchant_id == entity.merchant_id)
+            .scalar_subquery()
+        )
+        return order
 
     def _get_filters(self, **filters) -> list[Any]:
         filter_conditions = []
@@ -53,25 +61,38 @@ class OrderRepository(BaseRepository[OrderInDB, Order]):
 
         return row[0], row[1], row[2]
 
+    @staticmethod
+    def _merchant_day_start(merchant_id: UUID, day: date):
+        """Start of day in the merchant's timezone as a timestamptz, computed in SQL from
+        their settings so no separate settings read is needed"""
+        timezone = (
+            select(MerchantSettings.timezone)
+            .where(MerchantSettings.merchant_id == merchant_id)
+            .scalar_subquery()
+        )
+        # timezone(zone, timestamp) reads the timestamp as local time in zone
+        return func.timezone(timezone, cast(day, TIMESTAMP))
+
     async def list_orders(
-        self,
-        merchant_id: UUID,
-        query: OrderListQuery,
-        created_from: datetime | None = None,
-        created_before: datetime | None = None,
+        self, merchant_id: UUID, query: OrderListQuery
     ) -> tuple[list[tuple[Order, Customer | None, bool]], int]:
         """Page of orders with their customer and link state, and the total matching the
-        filters. created_from / created_before are the date filters already in UTC"""
+        filters. Dates are days in the merchant's timezone; date_to includes the whole day"""
         conditions: list[Any] = [self.model.merchant_id == merchant_id]
 
         if query.status:
             conditions.append(self.model.status.in_(query.status))
         if query.customer_id:
             conditions.append(self.model.customer_id == query.customer_id)
-        if created_from:
-            conditions.append(self.model.created_at >= created_from)
-        if created_before:
-            conditions.append(self.model.created_at < created_before)
+        if query.date_from:
+            conditions.append(
+                self.model.created_at >= self._merchant_day_start(merchant_id, query.date_from)
+            )
+        if query.date_to:
+            next_day: date = query.date_to + timedelta(days=1)
+            conditions.append(
+                self.model.created_at < self._merchant_day_start(merchant_id, next_day)
+            )
         if query.search:
             pattern: str = contains_pattern(query.search)
             conditions.append(
@@ -82,12 +103,6 @@ class OrderRepository(BaseRepository[OrderInDB, Order]):
                     Customer.email.ilike(pattern, escape=LIKE_ESCAPE),
                 )
             )
-
-        total: int = await self._async_session.scalar(
-            select(func.count(self.model.id))
-            .outerjoin(Customer, Customer.id == self.model.customer_id)
-            .where(*conditions)
-        )
 
         sort_columns: dict[str, Any] = {
             "created_at": self.model.created_at,
@@ -109,10 +124,15 @@ class OrderRepository(BaseRepository[OrderInDB, Order]):
             .outerjoin(Customer, Customer.id == self.model.customer_id)
             .where(*conditions)
             .order_by(*order_by)
-            .offset(query.offset)
-            .limit(query.limit)
         )
 
-        rows = (await self._async_session.execute(stmt)).all()
+        rows, total = await self._paginate(
+            stmt,
+            select(func.count(self.model.id))
+            .outerjoin(Customer, Customer.id == self.model.customer_id)
+            .where(*conditions),
+            query.page,
+            query.limit,
+        )
 
         return [(row[0], row[1], row[2]) for row in rows], total

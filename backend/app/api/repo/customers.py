@@ -43,15 +43,17 @@ class CustomerRepository(BaseRepository[CustomerInDB, Customer]):
         return filter_conditions
 
     async def get_or_create_by_email(self, customer: CustomerInDB) -> Customer:
-        """Customer for the merchant and email, created when missing. Safe under concurrent
-        syncs and order creation: an existing row is left untouched"""
-        await self._async_session.execute(
-            insert(self.model)
-            .values(**customer.model_dump())
-            .on_conflict_do_nothing(constraint="customers_merchant_email_uq")
-        )
+        """Customer for the merchant and email, created when missing, in one statement.
+        On conflict the existing row is 'updated' to its own email (a no-op) so RETURNING
+        yields it; other fields of an existing customer are left as they are"""
+        stmt = insert(self.model).values(**customer.model_dump())
+        stmt = stmt.on_conflict_do_update(
+            constraint="customers_merchant_email_uq", set_={"email": stmt.excluded.email}
+        ).returning(self.model)
 
-        return await self.get_record(merchant_id=customer.merchant_id, email=customer.email)
+        return (
+            await self._async_session.scalars(stmt, execution_options={"populate_existing": True})
+        ).one()
 
     @staticmethod
     def _payments_subquery(merchant_id: UUID):
@@ -103,10 +105,6 @@ class CustomerRepository(BaseRepository[CustomerInDB, Customer]):
         """Page of customers with their ledger counts, and the total matching the filters"""
         conditions: list[Any] = self._list_filters(merchant_id, query)
 
-        total: int = await self._async_session.scalar(
-            select(func.count(self.model.id)).where(*conditions)
-        )
-
         payments = self._payments_subquery(merchant_id)
         disputes = self._disputes_subquery(merchant_id)
 
@@ -139,11 +137,14 @@ class CustomerRepository(BaseRepository[CustomerInDB, Customer]):
             .outerjoin(disputes, disputes.c.customer_id == self.model.id)
             .where(*conditions)
             .order_by(*order_by)
-            .offset(query.offset)
-            .limit(query.limit)
         )
 
-        rows = (await self._async_session.execute(stmt)).all()
+        rows, total = await self._paginate(
+            stmt,
+            select(func.count(self.model.id)).where(*conditions),
+            query.page,
+            query.limit,
+        )
 
         return [
             {

@@ -40,19 +40,17 @@ class TransactionRepository(BaseRepository[BaseModel, Transaction]):
             self.model.customer_id == customer_id,
         ]
 
-        total: int = await self._async_session.scalar(
-            select(func.count(self.model.id)).where(*conditions)
-        )
-        rows = await self._async_session.scalars(
+        rows, total = await self._paginate(
             select(self.model)
             .where(*conditions)
             # newest payment first; id breaks ties so pages never repeat or skip rows
-            .order_by(self.model.paid_at.desc().nulls_last(), self.model.id.desc())
-            .offset(params.offset)
-            .limit(params.limit)
+            .order_by(self.model.paid_at.desc().nulls_last(), self.model.id.desc()),
+            select(func.count(self.model.id)).where(*conditions),
+            params.page,
+            params.limit,
         )
 
-        return list(rows), total
+        return [row[0] for row in rows], total
 
     async def list_for_order(self, merchant_id: UUID, order_id: UUID) -> list[Transaction]:
         rows = await self._async_session.scalars(
