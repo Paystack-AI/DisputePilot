@@ -86,6 +86,11 @@ class TrustState(enum.StrEnum):
 
 class Currency(enum.StrEnum):
     NGN = "NGN"
+    USD = "USD"
+    GHS = "GHS"
+    ZAR = "ZAR"
+    KES = "KES"
+    XOF = "XOF"
 
 
 class OrderSource(enum.StrEnum):
@@ -124,3 +129,23 @@ class OtpStatus(enum.StrEnum):
 class UserType(enum.StrEnum):
     EMAIL = "email"
     GOOGLE = "google"
+
+
+class PaystackMode(enum.StrEnum):
+    LIVE = "live"
+    TEST = "test"
+
+
+class OnboardingStep(enum.StrEnum):
+    CONNECT_PAYSTACK = "connect_paystack"
+    CONFIGURE_NOTIFICATIONS = "configure_notifications"
+    INITIAL_SYNC = "initial_sync"
+    FIRST_RECONCILIATION = "first_reconciliation"
+    COMPLETED = "completed"
+
+
+class InitialSyncStatus(enum.StrEnum):
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    FAILED = "failed"

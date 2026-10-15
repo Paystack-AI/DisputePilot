@@ -11,9 +11,13 @@ from sqlalchemy import (
     PrimaryKeyConstraint,
     text,
 )
+from sqlalchemy import (
+    Enum as PgEnum,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.api.models.base import Base
+from app.api.models.enums import Currency
 
 
 class MerchantSettings(Base):
@@ -27,6 +31,16 @@ class MerchantSettings(Base):
     default_reconciliation_range: Mapped[int] = mapped_column(INTEGER, default=1)
     trust_public_enabled: Mapped[bool] = mapped_column(BOOLEAN, default=False)
     trust_widget_enabled: Mapped[bool] = mapped_column(BOOLEAN, default=False)
+    # IANA name, used only for display and date-range bucketing; storage stays UTC
+    timezone: Mapped[str] = mapped_column(VARCHAR(64), default="UTC")
+    default_currency: Mapped[Currency] = mapped_column(
+        PgEnum(
+            Currency,
+            name="currency_enum",
+            values_callable=lambda e: [m.value for m in e],
+        ),
+        default=Currency.NGN,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

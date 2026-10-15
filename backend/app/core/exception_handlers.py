@@ -3,7 +3,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api.schemas.response import Error, ErrorResponse
-from app.core.exceptions import ServerError, exception_handler
+from app.core.exceptions import RateLimitExceeded, ServerError, exception_handler
 
 
 class ExceptionHandler:
@@ -32,9 +32,13 @@ class ExceptionHandler:
             ServerError,
             exception_handler(
                 500,
-                {
-                    "code": "INTERNAL_ERROR",
-                    "message": "Internal server error occured while processing request",
-                },
+                {"message": "Internal server error occured while processing request"},
+            ),
+        )
+        self.app.add_exception_handler(
+            RateLimitExceeded,
+            exception_handler(
+                429,
+                {"message": "Too many requests. Try again in {retry_after} seconds."},
             ),
         )

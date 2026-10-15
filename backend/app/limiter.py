@@ -1,8 +1,9 @@
+import math
 import time
+from collections.abc import Awaitable, Callable
 
 from fastapi.requests import Request
 from fastapi.responses import Response
-from fastapi_limiter.callback import default_callback
 from fastapi_limiter.depends import RateLimiter
 from pyrate_limiter.abstracts.bucket import BucketFactory
 from pyrate_limiter.abstracts.rate import Duration, Rate, RateItem
@@ -10,11 +11,27 @@ from pyrate_limiter.buckets.redis_bucket import RedisBucket
 from pyrate_limiter.limiter import Limiter
 from redis.asyncio import Redis
 
+from app.core.exceptions import RateLimitExceeded
+
 DURATION_MAPPING = {
     "hours": Duration.HOUR,
     "seconds": Duration.SECOND,
     "minutes": Duration.MINUTE,
 }
+
+
+def rate_limit_callback(rate: Rate) -> Callable[[Request, Response], Awaitable[None]]:
+    """Build a callback for the given Rate that rejects with a 429.
+
+    The bucket is a sliding window of rate.interval ms, so a blocked client is
+    guaranteed a free slot once a full interval has passed.
+    """
+    retry_after = math.ceil(rate.interval / 1000)
+
+    async def _callback(request: Request, response: Response) -> None:
+        raise RateLimitExceeded(retry_after=retry_after)
+
+    return _callback
 
 
 async def client_identifier(request: Request):
@@ -103,7 +120,8 @@ async def get_limiter(request: Request, config: tuple) -> RateLimiter:
     if config not in limiters:
         key, limit, unit, multiplier = config
         interval = DURATION_MAPPING.get(unit, Duration.MINUTE) * multiplier
-        rates = [Rate(limit=limit, interval=interval)]
+        rate = Rate(limit=limit, interval=interval)
+        rates = [rate]
 
         # Throwaway bucket, used only to resolve the Lua script hash once.
         redis_bucket = await RedisBucket.init(rates=rates, redis=redis, bucket_key=key)
@@ -119,7 +137,7 @@ async def get_limiter(request: Request, config: tuple) -> RateLimiter:
         rate_limiter = SafeRateLimiter(
             limiter=limiter,
             identifier=client_identifier,
-            callback=default_callback,
+            callback=rate_limit_callback(rate),
         )
 
         limiters[config] = rate_limiter
