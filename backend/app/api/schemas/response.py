@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from app.api.schemas.pagination import PageMeta
+
 T = TypeVar("T", bound=BaseModel)
 
 
@@ -12,7 +14,7 @@ class SuccessResponse(BaseModel, Generic[T]):
 
 class ListSuccessResponse(BaseModel, Generic[T]):
     data: list[T]
-    meta: dict  # contains additional metadata such as cursor and limit for pagination
+    meta: PageMeta
 
 
 class Error(BaseModel):

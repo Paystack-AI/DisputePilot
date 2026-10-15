@@ -12,8 +12,10 @@ from app.api.repo.merchants import MerchantRepository
 from app.api.repo.redis import RedisRepository
 from app.api.repo.uow import UnitOfWorkRepository
 from app.api.services.auth import AuthService
+from app.api.services.customer_ledger import CustomerLedgerService
 from app.api.services.merchants import MerchantService
 from app.api.services.onboarding import OnboardingService
+from app.api.services.order_management import OrderManagementService
 from app.api.services.paystack import PaystackService
 from app.api.services.settings import SettingsService
 from app.core.config import get_settings
@@ -90,11 +92,21 @@ async def get_onboarding_service() -> OnboardingService:
     return OnboardingService()
 
 
+async def get_customer_ledger_service() -> CustomerLedgerService:
+    return CustomerLedgerService()
+
+
+async def get_order_management_service() -> OrderManagementService:
+    return OrderManagementService()
+
+
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 MerchantServiceDep = Annotated[MerchantService, Depends(get_merchant_service)]
 PaystackServiceDep = Annotated[PaystackService, Depends(get_paystack_service)]
 SettingsServiceDep = Annotated[SettingsService, Depends(get_settings_service)]
 OnboardingServiceDep = Annotated[OnboardingService, Depends(get_onboarding_service)]
+CustomerLedgerServiceDep = Annotated[CustomerLedgerService, Depends(get_customer_ledger_service)]
+OrderManagementServiceDep = Annotated[OrderManagementService, Depends(get_order_management_service)]
 
 # ------------------------ Auth dependency ---------------------------- #
 

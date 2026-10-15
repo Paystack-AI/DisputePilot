@@ -10,6 +10,19 @@ from app.api.models.base import Base
 Entity = TypeVar("Entity", bound=BaseModel)
 SqlalchemyModel = TypeVar("SqlalchemyModel", bound=Base)
 
+LIKE_ESCAPE: str = "\\"
+
+
+def contains_pattern(term: str) -> str:
+    """ILIKE pattern matching term anywhere, with % and _ in the term taken literally;
+    use with escape=LIKE_ESCAPE"""
+    escaped: str = (
+        term.replace(LIKE_ESCAPE, LIKE_ESCAPE * 2)
+        .replace("%", LIKE_ESCAPE + "%")
+        .replace("_", LIKE_ESCAPE + "_")
+    )
+    return f"%{escaped}%"
+
 
 class BaseRepository(ABC, Generic[Entity, SqlalchemyModel]):
     def __init__(self, async_session: AsyncSession = None):

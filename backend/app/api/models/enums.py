@@ -4,7 +4,6 @@ import enum
 class OrderStatus(enum.StrEnum):
     PENDING = "pending"
     PAID = "paid"
-    PARTIALLY_PAID = "partially_paid"
     FULFILLED = "fulfilled"
     CANCELLED = "cancelled"
 

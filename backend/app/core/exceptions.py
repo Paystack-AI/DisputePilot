@@ -102,6 +102,55 @@ class OnboardingStepMismatchError(AppException):
         self.details = {"current_step": current_step}
 
 
+class NotFoundError(AppException):
+    """Record does not exist or belongs to another merchant (existence is not revealed)."""
+
+    def __init__(self, resource: str):
+        super().__init__("NOT_FOUND")
+        self.resource = resource
+
+
+class CustomerExistsError(AppException):
+    """The merchant already has a customer with this email."""
+
+    def __init__(self, customer_id: str):
+        super().__init__("CUSTOMER_EXISTS")
+        # lets the client open the existing customer instead
+        self.details = {"customer_id": customer_id}
+
+
+class CustomerEmailLockedError(AppException):
+    """Email identifies a customer with synced payments, so it can not change."""
+
+    def __init__(self):
+        super().__init__("CUSTOMER_EMAIL_LOCKED")
+
+
+class OrderNumberExistsError(AppException):
+    """The merchant already has an order with this number (case-insensitive)."""
+
+    def __init__(self):
+        super().__init__("ORDER_NUMBER_EXISTS")
+
+
+class OrderLinkedError(AppException):
+    """Order is linked to a transaction; matched fields can not change until it is unlinked."""
+
+    def __init__(self, fields: list[str]):
+        super().__init__("ORDER_LINKED")
+        self.details = {"fields": ", ".join(fields)}
+
+
+class OrderStatusTransitionError(AppException):
+    """Status change the merchant can not make (paid is set by reconciliation)."""
+
+    def __init__(self, current_status: str, new_status: str):
+        super().__init__("ORDER_STATUS_TRANSITION")
+        self.current_status = current_status
+        self.new_status = new_status
+        self.details = {"current_status": current_status}
+
+
 class RateLimitExceeded(AppException):
     def __init__(self, retry_after: int):
         super().__init__("RATE_LIMITED")
