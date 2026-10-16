@@ -67,8 +67,7 @@ def upgrade() -> None:
     op.execute("ALTER TYPE order_status RENAME TO order_status_old")
     op.execute("CREATE TYPE order_status AS ENUM ('pending', 'paid', 'fulfilled', 'cancelled')")
     op.execute(
-        "ALTER TABLE orders ALTER COLUMN status TYPE order_status "
-        "USING status::text::order_status"
+        "ALTER TABLE orders ALTER COLUMN status TYPE order_status USING status::text::order_status"
     )
     op.execute("DROP TYPE order_status_old")
 
@@ -81,8 +80,7 @@ def downgrade() -> None:
         "('pending', 'paid', 'partially_paid', 'fulfilled', 'cancelled')"
     )
     op.execute(
-        "ALTER TABLE orders ALTER COLUMN status TYPE order_status "
-        "USING status::text::order_status"
+        "ALTER TABLE orders ALTER COLUMN status TYPE order_status USING status::text::order_status"
     )
     op.execute("DROP TYPE order_status_old")
 
