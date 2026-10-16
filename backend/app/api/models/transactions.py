@@ -60,6 +60,10 @@ class Transaction(Base):
     paystack_fees: Mapped[int | None] = mapped_column(BIGINT)
     customer_email: Mapped[str | None] = mapped_column(VARCHAR(255))
     customer_name: Mapped[str | None] = mapped_column(VARCHAR(255))
+    # set at sync from the paystack customer (email, CUS code); the customer ledger key
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("customers.id"), index=True
+    )
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
     reconciliation_status: Mapped[ReconciliationStatus] = mapped_column(
         PgEnum(

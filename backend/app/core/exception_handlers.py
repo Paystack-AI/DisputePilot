@@ -7,11 +7,17 @@ from app.core.exceptions import (
     AccountDeactivatedError,
     AuthenticationError,
     CredentialError,
+    CustomerEmailLockedError,
+    CustomerExistsError,
     EmailNotVerifiedError,
     InvalidOAuthCodeError,
     InvalidOtpError,
     MerchantExistsError,
+    NotFoundError,
     OnboardingStepMismatchError,
+    OrderLinkedError,
+    OrderNumberExistsError,
+    OrderStatusTransitionError,
     OtpAttemptsExceededError,
     PasswordLoginRequiredError,
     RateLimitExceeded,
@@ -107,6 +113,41 @@ class ExceptionHandler:
             exception_handler(
                 409,
                 {"message": "This onboarding step is not available from {current_step}."},
+            ),
+        )
+        self.app.add_exception_handler(
+            NotFoundError,
+            exception_handler(404, {"message": "{resource} not found."}),
+        )
+        self.app.add_exception_handler(
+            CustomerExistsError,
+            exception_handler(409, {"message": "A customer with this email already exists."}),
+        )
+        self.app.add_exception_handler(
+            CustomerEmailLockedError,
+            exception_handler(
+                409,
+                {"message": "This customer has synced payments, so their email can not change."},
+            ),
+        )
+        self.app.add_exception_handler(
+            OrderNumberExistsError,
+            exception_handler(409, {"message": "An order with this number already exists."}),
+        )
+        self.app.add_exception_handler(
+            OrderLinkedError,
+            exception_handler(
+                409,
+                {
+                    "message": "This order is linked to a payment. Unlink it in reconciliation "
+                    "to change it."
+                },
+            ),
+        )
+        self.app.add_exception_handler(
+            OrderStatusTransitionError,
+            exception_handler(
+                409, {"message": "An order can not move from {current_status} to {new_status}."}
             ),
         )
         self.app.add_exception_handler(

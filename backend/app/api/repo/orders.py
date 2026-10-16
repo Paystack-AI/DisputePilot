@@ -1,0 +1,138 @@
+from datetime import date, timedelta
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import TIMESTAMP, Select, cast, exists, func, or_, select
+
+from app.api.models.customers import Customer
+from app.api.models.merchant_settings import MerchantSettings
+from app.api.models.orders import Order
+from app.api.models.transactions import Transaction
+from app.api.repo.base import LIKE_ESCAPE, BaseRepository, contains_pattern
+from app.api.schemas.orders import OrderInDB, OrderListQuery
+
+
+class OrderRepository(BaseRepository[OrderInDB, Order]):
+    model = Order
+
+    @staticmethod
+    def _entity_to_model(entity: OrderInDB) -> model:
+        order = Order(**entity.model_dump(exclude={"currency"}))
+        # no currency given: the merchant's default, read inside the INSERT itself
+        order.currency = entity.currency or (
+            select(MerchantSettings.default_currency)
+            .where(MerchantSettings.merchant_id == entity.merchant_id)
+            .scalar_subquery()
+        )
+        return order
+
+    def _get_filters(self, **filters) -> list[Any]:
+        filter_conditions = []
+
+        if "id" in filters:
+            filter_conditions.append(self.model.id == filters["id"])
+        if "merchant_id" in filters:
+            filter_conditions.append(self.model.merchant_id == filters["merchant_id"])
+        if "customer_id" in filters:
+            filter_conditions.append(self.model.customer_id == filters["customer_id"])
+
+        return filter_conditions
+
+    def _is_linked(self):
+        return exists().where(Transaction.order_id == self.model.id).label("is_linked")
+
+    async def get_with_customer(
+        self, merchant_id: UUID, order_id: UUID, for_update: bool = False
+    ) -> tuple[Order, Customer | None, bool] | None:
+        """The merchant's order, its customer and whether it is linked to a synced payment,
+        in one query. for_update locks only the order row (postgres can not lock the
+        nullable side of an outer join, and the customer does not need it)"""
+        stmt: Select = (
+            select(self.model, Customer, self._is_linked())
+            .outerjoin(Customer, Customer.id == self.model.customer_id)
+            .where(self.model.id == order_id, self.model.merchant_id == merchant_id)
+        )
+        if for_update:
+            stmt = stmt.with_for_update(of=self.model)
+
+        row = (await self._async_session.execute(stmt)).one_or_none()
+        if row is None:
+            return None
+
+        return row[0], row[1], row[2]
+
+    @staticmethod
+    def _merchant_day_start(merchant_id: UUID, day: date):
+        """Start of day in the merchant's timezone as a timestamptz, computed in SQL from
+        their settings so no separate settings read is needed"""
+        timezone = (
+            select(MerchantSettings.timezone)
+            .where(MerchantSettings.merchant_id == merchant_id)
+            .scalar_subquery()
+        )
+        # timezone(zone, timestamp) reads the timestamp as local time in zone
+        return func.timezone(timezone, cast(day, TIMESTAMP))
+
+    async def list_orders(
+        self, merchant_id: UUID, query: OrderListQuery
+    ) -> tuple[list[tuple[Order, Customer | None, bool]], int]:
+        """Page of orders with their customer and link state, and the total matching the
+        filters. Dates are days in the merchant's timezone; date_to includes the whole day"""
+        conditions: list[Any] = [self.model.merchant_id == merchant_id]
+
+        if query.status:
+            conditions.append(self.model.status.in_(query.status))
+        if query.customer_id:
+            conditions.append(self.model.customer_id == query.customer_id)
+        if query.date_from:
+            conditions.append(
+                self.model.created_at >= self._merchant_day_start(merchant_id, query.date_from)
+            )
+        if query.date_to:
+            next_day: date = query.date_to + timedelta(days=1)
+            conditions.append(
+                self.model.created_at < self._merchant_day_start(merchant_id, next_day)
+            )
+        if query.search:
+            pattern: str = contains_pattern(query.search)
+            conditions.append(
+                or_(
+                    self.model.order_number.ilike(pattern, escape=LIKE_ESCAPE),
+                    self.model.description.ilike(pattern, escape=LIKE_ESCAPE),
+                    Customer.name.ilike(pattern, escape=LIKE_ESCAPE),
+                    Customer.email.ilike(pattern, escape=LIKE_ESCAPE),
+                )
+            )
+
+        sort_columns: dict[str, Any] = {
+            "created_at": self.model.created_at,
+            "amount": self.model.amount,
+            "order_number": func.lower(self.model.order_number),
+        }
+        descending: bool = query.sort.startswith("-")
+        sort_column = sort_columns.get(query.sort.lstrip("-"), self.model.created_at)
+
+        # id breaks ties so pages never repeat or skip rows
+        order_by = (
+            (sort_column.desc().nulls_last(), self.model.id.desc())
+            if descending
+            else (sort_column.asc().nulls_last(), self.model.id.asc())
+        )
+
+        stmt: Select = (
+            select(self.model, Customer, self._is_linked())
+            .outerjoin(Customer, Customer.id == self.model.customer_id)
+            .where(*conditions)
+            .order_by(*order_by)
+        )
+
+        rows, total = await self._paginate(
+            stmt,
+            select(func.count(self.model.id))
+            .outerjoin(Customer, Customer.id == self.model.customer_id)
+            .where(*conditions),
+            query.page,
+            query.limit,
+        )
+
+        return [(row[0], row[1], row[2]) for row in rows], total

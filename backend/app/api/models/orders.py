@@ -7,6 +7,7 @@ from sqlalchemy import (
     VARCHAR,
     DateTime,
     ForeignKey,
+    Index,
     PrimaryKeyConstraint,
     Text,
     text,
@@ -26,10 +27,14 @@ class Order(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
     merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
-    customer_id: Mapped[uuid.UUID | None] = mapped_column(UUID, ForeignKey("customers.id"))
-    order_number: Mapped[str] = mapped_column(VARCHAR(50))
+    customer_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("customers.id"), index=True
+    )
+    # optional, entered by the merchant; matched against paystack metadata or the reference
+    # (tier 1), so unique per merchant ignoring case
+    order_number: Mapped[str | None] = mapped_column(VARCHAR(50))
     description: Mapped[str | None] = mapped_column(Text)
-    amount: Mapped[int] = mapped_column(BIGINT)
+    amount: Mapped[int] = mapped_column(BIGINT)  # smallest currency unit, e.g. kobo
     currency: Mapped[Currency] = mapped_column(
         PgEnum(
             Currency,
@@ -59,4 +64,13 @@ class Order(Base):
     )
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    __table_args__ = (PrimaryKeyConstraint("id", name="orders_pk"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="orders_pk"),
+        Index(
+            "orders_merchant_order_number_uq",
+            "merchant_id",
+            text("lower(order_number)"),
+            unique=True,
+            postgresql_where=text("order_number IS NOT NULL"),
+        ),
+    )
