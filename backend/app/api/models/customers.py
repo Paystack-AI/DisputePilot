@@ -7,6 +7,7 @@ from sqlalchemy import (
     VARCHAR,
     DateTime,
     ForeignKey,
+    Index,
     PrimaryKeyConstraint,
     UniqueConstraint,
     text,
@@ -43,5 +44,18 @@ class Customer(Base):
         UniqueConstraint("merchant_id", "email", name="customers_merchant_email_uq"),
         UniqueConstraint(
             "merchant_id", "paystack_customer_code", name="customers_merchant_paystack_code_uq"
+        ),
+        # trigram indexes serve the search's ILIKE '%term%' (pg_trgm)
+        Index(
+            "customers_name_trgm_idx",
+            "name",
+            postgresql_using="gin",
+            postgresql_ops={"name": "gin_trgm_ops"},
+        ),
+        Index(
+            "customers_email_trgm_idx",
+            "email",
+            postgresql_using="gin",
+            postgresql_ops={"email": "gin_trgm_ops"},
         ),
     )

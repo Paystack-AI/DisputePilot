@@ -73,4 +73,17 @@ class Order(Base):
             unique=True,
             postgresql_where=text("order_number IS NOT NULL"),
         ),
+        # trigram indexes serve the search's ILIKE '%term%' (pg_trgm)
+        Index(
+            "orders_order_number_trgm_idx",
+            "order_number",
+            postgresql_using="gin",
+            postgresql_ops={"order_number": "gin_trgm_ops"},
+        ),
+        Index(
+            "orders_description_trgm_idx",
+            "description",
+            postgresql_using="gin",
+            postgresql_ops={"description": "gin_trgm_ops"},
+        ),
     )

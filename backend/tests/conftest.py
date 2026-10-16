@@ -47,6 +47,8 @@ async def async_engine():
     )
 
     async with async_db_engine.begin() as conn:
+        # the search columns have trigram indexes
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
         await conn.execute(
             text("""
             CREATE OR REPLACE FUNCTION uuid_generate_v7()
