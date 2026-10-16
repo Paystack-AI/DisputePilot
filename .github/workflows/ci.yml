@@ -21,7 +21,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       ai: ${{ steps.filter.outputs.ai }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -41,7 +41,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -116,7 +116,7 @@ jobs:
       SESSION_SECRET_KEY: ci-session-secret-key  # pragma: allowlist secret
       OTP_SECRET_KEY: ci-otp-secret-key   # pragma: allowlist secret
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v5
         with:
           python-version: '3.11'
@@ -141,7 +141,7 @@ jobs:
       run:
         working-directory: ai
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
