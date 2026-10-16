@@ -1,14 +1,16 @@
 import asyncio
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient, Response
+from kombu.exceptions import OperationalError
 from redis.asyncio import Redis
 
 from app.api.models.enums import UserType
 from app.api.repo.redis import RedisRepository
 from app.api.schemas.auth import TokenData
+from app.api.services.email import AUTH_EMAIL_PRIORITY
 from app.api.services.otp import OtpService
 from app.core.exceptions import ServerError
 from app.core.security import Security
@@ -32,6 +34,29 @@ class TestRegister:
             "email": SIGN_UP_PAYLOAD["email"],
             "expires_in": 15 * 60,
         }
+
+    @pytest.mark.asyncio
+    async def test_register_queues_verification_email(
+        self, register: Response, queued_emails: MagicMock
+    ):
+        queued_emails.assert_called_once()
+        kwargs: dict = queued_emails.call_args.kwargs["kwargs"]
+
+        assert kwargs["recipient_email"] == SIGN_UP_PAYLOAD["email"]
+        assert kwargs["subject"] == "DisputePilot: Verify your email"
+        assert OTP_CODE in kwargs["html"]
+        assert queued_emails.call_args.kwargs["priority"] == AUTH_EMAIL_PRIORITY
+
+    @pytest.mark.asyncio
+    async def test_register_broker_unavailable(
+        self, async_client: AsyncClient, queued_emails: MagicMock
+    ):
+        queued_emails.side_effect = OperationalError("broker unavailable")
+
+        res: Response = await async_client.post("/auth/register", json=SIGN_UP_PAYLOAD)
+
+        assert res.status_code == 500
+        assert res.json()["error"]["code"] == "INTERNAL_ERROR"
 
     @pytest.mark.asyncio
     async def test_register_creates_settings_and_onboarding(
@@ -587,13 +612,14 @@ class TestPasswordReset:
         assert res.json()["error"]["code"] == "INVALID_OTP"
 
     @pytest.mark.asyncio
-    async def test_unknown_email(self, async_client: AsyncClient):
+    async def test_unknown_email(self, async_client: AsyncClient, queued_emails: MagicMock):
         res: Response = await async_client.post(
             "/auth/password-reset", json={"email": "unknown@example.com"}
         )
 
         assert res.status_code == 202
         assert res.json()["data"] == {"email": "unknown@example.com", "expires_in": 15 * 60}
+        queued_emails.assert_not_called()
 
 
 class TestDeactivation:

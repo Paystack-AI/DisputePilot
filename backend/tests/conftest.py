@@ -22,6 +22,7 @@ from app.core.config import get_settings
 from app.database.session import get_session
 from app.deps import get_redis_client, read_limiter, write_limiter
 from app.main import app
+from app.worker.tasks.email import send_email
 
 # keep test keys away from the dev data in the default redis db
 TEST_REDIS_URL: str = get_settings().REDIS_URL.rsplit("/", 1)[0] + "/15"
@@ -163,6 +164,13 @@ async def async_client(
         app.state.redis = app_redis
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def queued_emails():
+    """Capture queued emails instead of publishing them to the broker"""
+    with patch.object(send_email, "apply_async") as apply_async:
+        yield apply_async
 
 
 @pytest.fixture(autouse=True)

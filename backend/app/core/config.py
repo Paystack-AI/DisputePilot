@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # rabbitmq
     BROKER_URL: str
 
+    # resend email
+    API_EMAIL: str  # sender address, on a domain verified in resend
+    RESEND_API_KEY: str
+
     # rate limit keys
     READ_LIMIT_KEY: str = "limiter:read"
     WRITE_LIMIT_KEY: str = "limiter:write"

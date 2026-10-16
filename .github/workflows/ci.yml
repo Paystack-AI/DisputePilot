@@ -105,6 +105,8 @@ jobs:
       ASYNC_TEST_DB_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/disputepilot_test  # pragma: allowlist secret
       REDIS_URL: redis://localhost:6379/0
       BROKER_URL: amqp://guest:guest@localhost:5672//  # pragma: allowlist secret
+      API_EMAIL: ci@example.com
+      RESEND_API_KEY: ci-resend-api-key  # pragma: allowlist secret
       ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       ACCESS_TOKEN_EXPIRE_TIME: 15
       REFRESH_TOKEN_EXPIRE_TIME: 7
