@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient, Response
+from httpx import ASGITransport, AsyncClient, MockTransport, Request, Response
 from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
@@ -20,7 +20,7 @@ from app.api.models.base import Base
 from app.api.services.otp import OtpService
 from app.core.config import get_settings
 from app.database.session import get_session
-from app.deps import get_redis_client, read_limiter, write_limiter
+from app.deps import get_paystack_http, get_redis_client, read_limiter, write_limiter
 from app.main import app
 from app.worker.tasks.email import send_email
 
@@ -124,6 +124,35 @@ async def test_redis_client(redis_session_client: Redis):
         await redis_session_client.flushdb()
 
 
+class FakePaystack:
+    """Stands in for api.paystack.co: every request gets a successful empty response
+    unless a test sets one with respond(), and is recorded in requests"""
+
+    OK: dict = {"status": True, "message": "ok", "data": [], "meta": {}}
+
+    def __init__(self):
+        self.requests: list[Request] = []
+        self._responses: dict[tuple[str, str], tuple[int, dict]] = {}
+
+    def respond(self, method: str, path: str, status_code: int = 200, json: dict | None = None):
+        self._responses[(method, path)] = (status_code, json if json is not None else self.OK)
+
+    def handler(self, request: Request) -> Response:
+        self.requests.append(request)
+        status_code, body = self._responses.get((request.method, request.url.path), (200, self.OK))
+        return Response(status_code, json=body)
+
+
+@pytest_asyncio.fixture
+async def paystack_api():
+    fake = FakePaystack()
+    async with AsyncClient(
+        transport=MockTransport(fake.handler), base_url=get_settings().PAYSTACK_BASE_URL
+    ) as client:
+        fake.client = client
+        yield fake
+
+
 async def _no_limit():
     return None
 
@@ -133,6 +162,7 @@ async def async_client(
     request: pytest.FixtureRequest,
     session_maker: async_sessionmaker[AsyncSession],
     test_redis_client: Redis,
+    paystack_api: FakePaystack,
 ):
     async def get_test_session():
         session = session_maker()
@@ -141,6 +171,8 @@ async def async_client(
 
     app.dependency_overrides[get_session] = get_test_session
     app.dependency_overrides[get_redis_client] = lambda: test_redis_client
+    # no test reaches the real paystack api
+    app.dependency_overrides[get_paystack_http] = lambda: paystack_api.client
 
     rate_limited: bool = request.node.get_closest_marker("rate_limited") is not None
 
@@ -149,21 +181,27 @@ async def async_client(
         app.dependency_overrides[read_limiter.dependency] = _no_limit
 
     # ASGITransport does not send lifespan events, so run the app's lifespan
-    # explicitly to populate app.state (limiters, redis) like a real server.
-    async with app.router.lifespan_context(app):
-        app_redis: Redis = app.state.redis
+    # explicitly to populate app.state (limiters, redis) like a real server. The real
+    # paystack client loads ssl certificates (~0.5s) and is never used in tests, so
+    # the lifespan gets one backed by the fake instead
+    with patch(
+        "app.main.create_async_http_client",
+        lambda: AsyncClient(transport=MockTransport(paystack_api.handler)),
+    ):
+        async with app.router.lifespan_context(app):
+            app_redis: Redis = app.state.redis
 
-        if rate_limited:
-            # count requests in the test redis db, starting from empty buckets
-            app.state.redis = test_redis_client
-            app.state.limiters = {}
+            if rate_limited:
+                # count requests in the test redis db, starting from empty buckets
+                app.state.redis = test_redis_client
+                app.state.limiters = {}
 
-        async with AsyncClient(
-            transport=ASGITransport(app), base_url="http://test/api/v1"
-        ) as client:
-            yield client
+            async with AsyncClient(
+                transport=ASGITransport(app), base_url="http://test/api/v1"
+            ) as client:
+                yield client
 
-        app.state.redis = app_redis
+            app.state.redis = app_redis
 
     app.dependency_overrides.clear()
 

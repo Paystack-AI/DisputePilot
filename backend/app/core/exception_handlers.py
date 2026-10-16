@@ -20,6 +20,9 @@ from app.core.exceptions import (
     OrderStatusTransitionError,
     OtpAttemptsExceededError,
     PasswordLoginRequiredError,
+    PaystackIntegrationMismatchError,
+    PaystackKeyInvalidError,
+    PaystackUpstreamError,
     RateLimitExceeded,
     ServerError,
     TokenExpiredError,
@@ -40,7 +43,7 @@ class ExceptionHandler:
                 content=ErrorResponse(
                     error=Error(
                         code="VALIDATION_FAILED",
-                        message="",
+                        message="Some fields are missing or invalid. See details.",
                         request_id=request.state.request_id,
                         details=details,
                     )
@@ -148,6 +151,26 @@ class ExceptionHandler:
             OrderStatusTransitionError,
             exception_handler(
                 409, {"message": "An order can not move from {current_status} to {new_status}."}
+            ),
+        )
+        self.app.add_exception_handler(
+            PaystackKeyInvalidError,
+            exception_handler(422, {"message": "Paystack rejected this secret key."}),
+        )
+        self.app.add_exception_handler(
+            PaystackIntegrationMismatchError,
+            exception_handler(
+                409,
+                {
+                    "message": "This key belongs to a different Paystack account than the one "
+                    "connected."
+                },
+            ),
+        )
+        self.app.add_exception_handler(
+            PaystackUpstreamError,
+            exception_handler(
+                502, {"message": "Paystack could not be reached. Try again shortly."}
             ),
         )
         self.app.add_exception_handler(

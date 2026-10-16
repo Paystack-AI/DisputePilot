@@ -4,6 +4,7 @@ from uuid import UUID
 import sentry_sdk.logger as sentry_logger
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from httpx import AsyncClient
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,6 +44,16 @@ async def get_redis_client(request: Request) -> Redis:
 RedisDep = Annotated[Redis, Depends(get_redis_client)]
 
 
+# ------------------- Paystack http dependency ------------------------------ #
+async def get_paystack_http(request: Request) -> AsyncClient:
+    """Connection pool shared by every merchant's paystack client"""
+    paystack_http: AsyncClient = request.app.state.paystack_http
+    return paystack_http
+
+
+PaystackHttp = Annotated[AsyncClient, Depends(get_paystack_http)]
+
+
 # ------------------- Security dependency ------------------------------ #
 async def get_security() -> Security:
     return Security()
@@ -80,8 +91,8 @@ async def get_auth_service(redis_repo: RedisRepo) -> AuthService:
     return AuthService(redis_repo=redis_repo)
 
 
-async def get_paystack_service() -> PaystackService:
-    return PaystackService()
+async def get_paystack_service(paystack_http: PaystackHttp) -> PaystackService:
+    return PaystackService(paystack_http=paystack_http)
 
 
 async def get_settings_service() -> SettingsService:

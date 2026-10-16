@@ -5,12 +5,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.api.models.merchants import Merchant
 from app.core.security import Security
-from tests.conftest import SIGN_UP_PAYLOAD
+from tests.conftest import SIGN_UP_PAYLOAD, FakePaystack
 
 # fake keys, kept short so they don't look like real stripe / paystack secret keys to
 # secret scanners (github push protection matches sk_live_ followed by 24+ characters)
 TEST_SECRET_KEY: str = "sk_test_fakekey01"  # pragma: allowlist secret
 LIVE_SECRET_KEY: str = "sk_live_fakekey01"  # pragma: allowlist secret
+
+
+def _transactions(integration: int) -> dict:
+    return {"status": True, "message": "ok", "data": [{"id": 1, "integration": integration}]}
 
 
 async def _connect(async_client: AsyncClient, headers: dict, secret_key: str) -> Response:
@@ -94,6 +98,79 @@ class TestConnect:
         res: Response = await _connect(async_client, {}, TEST_SECRET_KEY)
 
         assert res.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_key_checked_with_paystack(
+        self, async_client: AsyncClient, auth_headers: dict, paystack_api: FakePaystack
+    ):
+        await _connect(async_client, auth_headers, TEST_SECRET_KEY)
+
+        (request,) = paystack_api.requests
+        assert request.method == "GET"
+        assert request.url.path == "/transaction"
+        assert request.url.params["perPage"] == "1"
+        assert request.headers["Authorization"] == f"Bearer {TEST_SECRET_KEY}"
+
+    @pytest.mark.asyncio
+    async def test_key_rejected_by_paystack(
+        self, async_client: AsyncClient, auth_headers: dict, paystack_api: FakePaystack
+    ):
+        paystack_api.respond(
+            "GET", "/transaction", 401, {"status": False, "message": "Invalid key"}
+        )
+
+        res: Response = await _connect(async_client, auth_headers, TEST_SECRET_KEY)
+
+        assert res.status_code == 422
+        assert res.json()["error"]["code"] == "PAYSTACK_KEY_INVALID"
+
+        # nothing is stored for a rejected key
+        res = await async_client.get("/auth/paystack/status", headers=auth_headers)
+        assert res.json()["data"]["connected"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("status_code", [429, 500, 503])
+    async def test_paystack_unavailable(
+        self,
+        async_client: AsyncClient,
+        auth_headers: dict,
+        paystack_api: FakePaystack,
+        status_code: int,
+    ):
+        paystack_api.respond("GET", "/transaction", status_code, {"status": False})
+
+        res: Response = await _connect(async_client, auth_headers, TEST_SECRET_KEY)
+
+        assert res.status_code == 502
+        assert res.json()["error"]["code"] == "PAYSTACK_UPSTREAM_ERROR"
+
+    @pytest.mark.asyncio
+    async def test_integration_id_read_from_transactions(
+        self, async_client: AsyncClient, auth_headers: dict, paystack_api: FakePaystack
+    ):
+        paystack_api.respond("GET", "/transaction", json=_transactions(integration=100982))
+
+        res: Response = await _connect(async_client, auth_headers, TEST_SECRET_KEY)
+
+        assert res.json()["data"]["integration_id"] == "100982"
+
+    @pytest.mark.asyncio
+    async def test_rotate_to_another_integration(
+        self, async_client: AsyncClient, auth_headers: dict, paystack_api: FakePaystack
+    ):
+        paystack_api.respond("GET", "/transaction", json=_transactions(integration=100982))
+        await _connect(async_client, auth_headers, TEST_SECRET_KEY)
+
+        paystack_api.respond("GET", "/transaction", json=_transactions(integration=555))
+        res: Response = await _connect(async_client, auth_headers, LIVE_SECRET_KEY)
+
+        assert res.status_code == 409
+        assert res.json()["error"]["code"] == "PAYSTACK_INTEGRATION_MISMATCH"
+
+        # the connected key is kept
+        res = await async_client.get("/auth/paystack/status", headers=auth_headers)
+        assert res.json()["data"]["mode"] == "test"
+        assert res.json()["data"]["integration_id"] == "100982"
 
 
 class TestStatus:

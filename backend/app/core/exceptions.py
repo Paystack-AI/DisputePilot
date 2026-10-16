@@ -151,6 +151,27 @@ class OrderStatusTransitionError(AppException):
         self.details = {"current_status": current_status}
 
 
+class PaystackKeyInvalidError(AppException):
+    """Paystack rejected the secret key (wrong, revoked or from a deleted account)."""
+
+    def __init__(self):
+        super().__init__("PAYSTACK_KEY_INVALID")
+
+
+class PaystackIntegrationMismatchError(AppException):
+    """The key belongs to a different Paystack account than the one already connected."""
+
+    def __init__(self):
+        super().__init__("PAYSTACK_INTEGRATION_MISMATCH")
+
+
+class PaystackUpstreamError(AppException):
+    """Paystack could not be reached or failed; the request can be tried again."""
+
+    def __init__(self):
+        super().__init__("PAYSTACK_UPSTREAM_ERROR")
+
+
 class RateLimitExceeded(AppException):
     def __init__(self, retry_after: int):
         super().__init__("RATE_LIMITED")

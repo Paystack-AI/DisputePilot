@@ -2,7 +2,9 @@ from datetime import UTC, datetime
 
 import sentry_sdk
 import sentry_sdk.logger as sentry_logger
+from httpx import AsyncClient
 
+from app.api.clients.paystack import AsyncPaystackClient, PaystackAuthError, PaystackError
 from app.api.models.enums import OnboardingStep, PaystackMode
 from app.api.models.merchant_onboarding import MerchantOnboarding
 from app.api.models.merchants import Merchant
@@ -13,13 +15,20 @@ from app.api.schemas.merchants import PaystackConnection
 from app.api.schemas.paystack import PaystackConnect
 from app.api.services.merchant_onboarding import MerchantOnboardingService
 from app.api.services.merchants import MerchantService
-from app.core.exceptions import MerchantExistsError, ServerError
+from app.core.exceptions import (
+    MerchantExistsError,
+    PaystackIntegrationMismatchError,
+    PaystackKeyInvalidError,
+    PaystackUpstreamError,
+    ServerError,
+)
 from app.core.security import Security
 
 
 class PaystackService:
-    def __init__(self):
+    def __init__(self, paystack_http: AsyncClient):
         self._uow = None
+        self._paystack_http = paystack_http
 
     async def _setup_uow(self, uow: UnitOfWorkRepository):
         self._uow = uow
@@ -42,14 +51,50 @@ class PaystackService:
             connected_at=merchant.paystack_connected_at,
         )
 
-    async def _validate_secret_key(self, secret_key: str) -> PaystackMode:
-        """Returns the mode of a usable secret key"""
-        # TODO: make a test call with the key (e.g. GET /transaction?perPage=1):
-        #  - 401 -> raise an invalid paystack key error (422 PAYSTACK_KEY_INVALID)
-        #  - network / 5xx -> raise PAYSTACK_UPSTREAM_ERROR (502)
-        #  - data[0].integration, when present, is the merchant's integration id; if the
-        #    merchant already has a different one, the key belongs to another account
-        return PaystackMode.LIVE if secret_key.startswith("sk_live_") else PaystackMode.TEST
+    async def _validate_secret_key(
+        self, secret_key: str, curr_merchant: Merchant
+    ) -> tuple[PaystackMode, str | None]:
+        """Returns the mode of a usable secret key and its integration id, which is only
+        known once the account has a transaction (paystack has no endpoint for it)"""
+        merchant_id: str = str(curr_merchant.id)
+        client = AsyncPaystackClient(secret_key, self._paystack_http)
+
+        try:
+            transactions: dict = await client.list_transactions(per_page=1)
+        except PaystackAuthError as exc:
+            sentry_logger.error(
+                "Paystack rejected the secret key for merchant {merchant_id}",
+                merchant_id=merchant_id,
+            )
+            raise PaystackKeyInvalidError() from exc
+        except PaystackError as exc:
+            sentry_sdk.capture_exception(exc)
+            sentry_logger.error(
+                "Paystack key check failed for merchant {merchant_id}: {status_code}",
+                merchant_id=merchant_id,
+                status_code=str(exc.status_code),
+            )
+            raise PaystackUpstreamError() from exc
+
+        integration_id: str | None = None
+        if transactions.get("data"):
+            integration = transactions["data"][0].get("integration")
+            integration_id = str(integration) if integration is not None else None
+
+        # rotating must keep the same paystack account
+        if (
+            integration_id
+            and curr_merchant.paystack_integration_id
+            and integration_id != curr_merchant.paystack_integration_id
+        ):
+            sentry_logger.error(
+                "Secret key for merchant {merchant_id} belongs to another integration",
+                merchant_id=merchant_id,
+            )
+            raise PaystackIntegrationMismatchError()
+
+        mode = PaystackMode.LIVE if secret_key.startswith("sk_live_") else PaystackMode.TEST
+        return mode, integration_id
 
     async def connect(
         self,
@@ -60,7 +105,9 @@ class PaystackService:
     ) -> PaystackConnection:
         """Connect or rotate the merchant's secret key"""
         merchant_id: str = str(curr_merchant.id)
-        mode: PaystackMode = await self._validate_secret_key(connect_payload.secret_key)
+        mode, integration_id = await self._validate_secret_key(
+            connect_payload.secret_key, curr_merchant
+        )
 
         try:
             await self._uow_merchant_onboarding(uow)
@@ -71,6 +118,9 @@ class PaystackService:
                 connect_payload.secret_key
             )
             curr_merchant.paystack_mode = mode
+            if integration_id:
+                # another merchant holding this integration raises MerchantExistsError
+                curr_merchant.paystack_integration_id = integration_id
             curr_merchant.paystack_connected_at = now
             curr_merchant.updated_at = now
             merchant: Merchant = await self._merchant_service.update_merchant(curr_merchant)
