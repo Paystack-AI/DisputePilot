@@ -103,15 +103,22 @@ async def session_maker(async_engine: AsyncEngine):
     await async_connection.close()
 
 
-@pytest_asyncio.fixture
-async def test_redis_client():
+@pytest_asyncio.fixture(scope="session")
+async def redis_session_client():
+    # one client (and connection pool) for the whole run, like async_engine
     redis_client: Redis = Redis.from_url(TEST_REDIS_URL, decode_responses=True)
 
+    yield redis_client
+
+    await redis_client.aclose()
+
+
+@pytest_asyncio.fixture
+async def test_redis_client(redis_session_client: Redis):
     try:
-        yield redis_client
+        yield redis_session_client
     finally:
-        await redis_client.flushdb()
-        await redis_client.aclose()
+        await redis_session_client.flushdb()
 
 
 async def _no_limit():
