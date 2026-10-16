@@ -38,6 +38,8 @@ from app.api.schemas.merchants import (
     PaystackConnection,
 )
 from app.api.schemas.otp import EmailVerify, ResendOtp
+from app.api.services.email import EmailService
+from app.api.services.email_templates import google_only_password_reset_email, otp_email
 from app.api.services.merchant_onboarding import MerchantOnboardingService
 from app.api.services.merchant_settings import MerchantSettingsService
 from app.api.services.merchants import MerchantService
@@ -66,6 +68,7 @@ class AuthService:
         self._uow = None
         self._redis_repo = redis_repo
         self._otp_service = OtpService(redis_repo=redis_repo)
+        self._email_service = EmailService()
 
     SETTINGS = get_settings()
 
@@ -214,15 +217,18 @@ class AuthService:
         )
 
     async def _send_otp(self, merchant: Merchant, purpose: OtpPurpose):
-        otp: str = await self._otp_service.create_otp(merchant.id, purpose)  # noqa: F841
+        otp: str = await self._otp_service.create_otp(merchant.id, purpose)
 
-        # TODO: enqueue the send_email celery task (Resend) with the otp, the same way
-        # as Ledger: create an emails record for delivery status, then
-        # send_email.apply_async(kwargs={..., "email_id": ..., "recipient_email": merchant.email})
+        subject, html = otp_email(purpose, otp, self.SETTINGS.OTP_EXPIRE_TIME)
+        email_id: str = await self._email_service.send(
+            merchant.email or merchant.google_email, subject, html
+        )
+
         sentry_logger.info(
-            "{purpose} otp created for merchant {merchant_id}",
+            "{purpose} otp created for merchant {merchant_id}, email {email_id} queued",
             purpose=purpose,
             merchant_id=str(merchant.id),
+            email_id=email_id,
         )
 
     async def _authenticate(
@@ -528,8 +534,9 @@ class AuthService:
         if not merchant.hashed_password:
             # google only account: there is no password to reset. The api response stays
             # the same; the inbox owner is told how they actually sign in
-            # TODO: enqueue the send_email celery task (Resend) with a "this account signs
-            # in with Google" message, without a code
+            subject, html = google_only_password_reset_email()
+            await self._email_service.send(merchant.email or merchant.google_email, subject, html)
+
             sentry_logger.info(
                 "Password reset requested for google only merchant {merchant_id}",
                 merchant_id=str(merchant.id),

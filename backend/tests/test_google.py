@@ -343,10 +343,11 @@ class TestDeactivated:
 class TestPasswordReset:
     @pytest.mark.asyncio
     async def test_google_only_account_gets_no_code(
-        self, async_client: AsyncClient, test_redis_client: Redis
+        self, async_client: AsyncClient, test_redis_client: Redis, queued_emails: MagicMock
     ):
         mock_google()
         await _sign_up(async_client)
+        queued_emails.reset_mock()
 
         res: Response = await async_client.post(
             "/auth/password-reset", json={"email": GOOGLE_EMAIL}
@@ -355,3 +356,9 @@ class TestPasswordReset:
         # same response as any other email, but no reset code is created
         assert res.status_code == 202
         assert await test_redis_client.keys("otp:password_reset:*") == []
+
+        # the inbox owner is told to sign in with google instead
+        queued_emails.assert_called_once()
+        kwargs: dict = queued_emails.call_args.kwargs["kwargs"]
+        assert kwargs["recipient_email"] == GOOGLE_EMAIL
+        assert kwargs["subject"] == "DisputePilot: Password reset requested"
