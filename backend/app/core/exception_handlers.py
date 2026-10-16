@@ -8,10 +8,12 @@ from app.core.exceptions import (
     AuthenticationError,
     CredentialError,
     EmailNotVerifiedError,
+    InvalidOAuthCodeError,
     InvalidOtpError,
     MerchantExistsError,
     OnboardingStepMismatchError,
     OtpAttemptsExceededError,
+    PasswordLoginRequiredError,
     RateLimitExceeded,
     ServerError,
     TokenExpiredError,
@@ -85,6 +87,19 @@ class ExceptionHandler:
             AccountDeactivatedError,
             exception_handler(
                 403, {"message": "This account is deactivated. Reactivate it to continue."}
+            ),
+        )
+        self.app.add_exception_handler(
+            InvalidOAuthCodeError,
+            exception_handler(
+                400, {"message": "This sign in link has expired. Sign in with Google again."}
+            ),
+        )
+        self.app.add_exception_handler(
+            PasswordLoginRequiredError,
+            exception_handler(
+                403,
+                {"message": "Sign in with your email and password to change your password."},
             ),
         )
         self.app.add_exception_handler(

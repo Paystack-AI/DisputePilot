@@ -80,6 +80,10 @@ class RedisRepository:
     async def get_key(self, key: str) -> str | None:
         return await self._async_redis.get(key)
 
+    async def get_and_delete_key(self, key: str) -> str | None:
+        """Read a key and delete it in one step, so a one-time value is only used once"""
+        return await self._async_redis.getdel(key)
+
     async def delete_key(self, *keys: str) -> int:
         """Returns the number of keys deleted"""
         return await self._async_redis.delete(*keys)

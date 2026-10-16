@@ -64,4 +64,22 @@ class PasswordReset(EmailAuth):
 
 
 class AccountDeactivate(AuthBase):
-    password: str
+    # emailed code, so every account type (including google only) confirms the same way
+    otp_code: OtpCode
+
+
+class ReactivateRequest(EmailAuth):
+    pass
+
+
+class Reactivate(EmailAuth):
+    otp_code: OtpCode
+
+
+class GoogleSignInExchange(AuthBase):
+    code: str = Field(..., min_length=1, max_length=128)
+
+
+class GoogleSignUpComplete(AuthBase):
+    signup_token: str = Field(..., min_length=1, max_length=128)
+    business_name: str = Field(..., min_length=1, max_length=255)

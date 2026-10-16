@@ -124,11 +124,30 @@ class TransactionStatus(enum.StrEnum):
 class OtpPurpose(enum.StrEnum):
     EMAIL_VERIFICATION = "email_verification"
     PASSWORD_RESET = "password_reset"  # pragma: allowlist secret
+    ACCOUNT_DEACTIVATION = "account_deactivation"
+    ACCOUNT_REACTIVATION = "account_reactivation"
+
+
+class GoogleSignInIntent(enum.StrEnum):
+    SIGN_IN = "sign_in"
+    REACTIVATE = "reactivate"
+
+
+class GoogleSignInError(enum.StrEnum):
+    """Sent back to the frontend as ?error= when google sign in can not complete"""
+
+    ACCESS_DENIED = "access_denied"  # merchant cancelled on google's consent screen
+    OAUTH_FAILED = "oauth_failed"  # state mismatch, expired session or google error
+    EMAIL_NOT_VERIFIED = "google_email_not_verified"
+    ACCOUNT_DEACTIVATED = "account_deactivated"
 
 
 class UserType(enum.StrEnum):
-    EMAIL = "email"
+    """How a session signed in; carried in its tokens as usertype"""
+
+    EMAIL = "email"  # email and password
     GOOGLE = "google"
+    EMAIL_CODE = "email_code"  # emailed code, e.g. reactivation; no password was used
 
 
 class PaystackMode(enum.StrEnum):

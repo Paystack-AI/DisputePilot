@@ -602,8 +602,13 @@ class TestDeactivation:
         tokens: dict = login.json()["data"]
 
         res: Response = await async_client.post(
+            "/auth/me/deactivate/request", headers=_auth(tokens["access_token"])
+        )
+        assert res.status_code == 202
+
+        res = await async_client.post(
             "/auth/me/deactivate",
-            json={"password": SIGN_UP_PAYLOAD["password"]},
+            json={"otp_code": OTP_CODE},
             headers=_auth(tokens["access_token"]),
         )
         assert res.status_code == 204
@@ -624,7 +629,12 @@ class TestDeactivation:
         res = await async_client.post("/auth/register", json=SIGN_UP_PAYLOAD)
         assert res.status_code == 409
 
-        res = await async_client.post("/auth/reactivate", json=LOGIN_PAYLOAD)
+        email: dict = {"email": SIGN_UP_PAYLOAD["email"]}
+
+        res = await async_client.post("/auth/reactivate/request", json=email)
+        assert res.status_code == 202
+
+        res = await async_client.post("/auth/reactivate", json={**email, "otp_code": OTP_CODE})
         assert res.status_code == 200
 
         res = await async_client.get("/auth/me", headers=_auth(res.json()["data"]["access_token"]))
@@ -634,31 +644,73 @@ class TestDeactivation:
         assert res.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_deactivate_wrong_password(self, async_client: AsyncClient, auth_headers: dict):
+    async def test_deactivate_wrong_code(self, async_client: AsyncClient, auth_headers: dict):
+        await async_client.post("/auth/me/deactivate/request", headers=auth_headers)
+
         res: Response = await async_client.post(
-            "/auth/me/deactivate", json={"password": WRONG_PASSWORD}, headers=auth_headers
+            "/auth/me/deactivate", json={"otp_code": "000000"}, headers=auth_headers
         )
         assert res.status_code == 400
-        assert res.json()["error"]["code"] == "INVALID_CREDENTIALS"
+        assert res.json()["error"]["code"] == "INVALID_OTP"
 
         res = await async_client.get("/auth/me", headers=auth_headers)
         assert res.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_reactivate_wrong_password(self, async_client: AsyncClient, verify: Response):
+    async def test_deactivate_without_requesting_code(
+        self, async_client: AsyncClient, auth_headers: dict
+    ):
         res: Response = await async_client.post(
-            "/auth/reactivate", json={**LOGIN_PAYLOAD, "password": WRONG_PASSWORD}
+            "/auth/me/deactivate", json={"otp_code": OTP_CODE}, headers=auth_headers
         )
 
         assert res.status_code == 400
-        assert res.json()["error"]["code"] == "INVALID_CREDENTIALS"
+        assert res.json()["error"]["code"] == "INVALID_OTP"
 
     @pytest.mark.asyncio
-    async def test_reactivate_unverified(self, async_client: AsyncClient, register: Response):
-        res: Response = await async_client.post("/auth/reactivate", json=LOGIN_PAYLOAD)
+    async def test_reactivate_active_account(self, async_client: AsyncClient, verify: Response):
+        email: dict = {"email": SIGN_UP_PAYLOAD["email"]}
+
+        # nothing to reactivate: the request responds the same but sends no code
+        res: Response = await async_client.post("/auth/reactivate/request", json=email)
+        assert res.status_code == 202
+
+        res = await async_client.post("/auth/reactivate", json={**email, "otp_code": OTP_CODE})
+        assert res.status_code == 400
+        assert res.json()["error"]["code"] == "INVALID_OTP"
+
+    @pytest.mark.asyncio
+    async def test_reactivate_unknown_email(self, async_client: AsyncClient):
+        res: Response = await async_client.post(
+            "/auth/reactivate/request", json={"email": "unknown@example.com"}
+        )
+
+        assert res.status_code == 202
+        assert res.json()["data"] == {"email": "unknown@example.com", "expires_in": 15 * 60}
+
+    @pytest.mark.asyncio
+    async def test_reactivated_session_can_not_change_password(
+        self, async_client: AsyncClient, login: Response
+    ):
+        headers: dict = _auth(login.json()["data"]["access_token"])
+        email: dict = {"email": SIGN_UP_PAYLOAD["email"]}
+
+        await async_client.post("/auth/me/deactivate/request", headers=headers)
+        await async_client.post("/auth/me/deactivate", json={"otp_code": OTP_CODE}, headers=headers)
+        await async_client.post("/auth/reactivate/request", json=email)
+        res: Response = await async_client.post(
+            "/auth/reactivate", json={**email, "otp_code": OTP_CODE}
+        )
+
+        # signed in through the inbox, not the password
+        res = await async_client.patch(
+            "/auth/me",
+            json={"password": NEW_PASSWORD, "current_password": SIGN_UP_PAYLOAD["password"]},
+            headers=_auth(res.json()["data"]["access_token"]),
+        )
 
         assert res.status_code == 403
-        assert res.json()["error"]["code"] == "EMAIL_NOT_VERIFIED"
+        assert res.json()["error"]["code"] == "PASSWORD_LOGIN_REQUIRED"
 
 
 class TestRateLimit:

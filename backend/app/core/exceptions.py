@@ -78,6 +78,20 @@ class AccountDeactivatedError(AppException):
         super().__init__("ACCOUNT_DEACTIVATED")
 
 
+class InvalidOAuthCodeError(AppException):
+    """Google sign in code or sign up token is wrong, expired or already used."""
+
+    def __init__(self):
+        super().__init__("INVALID_OAUTH_CODE")
+
+
+class PasswordLoginRequiredError(AppException):
+    """Password changes need a session that signed in with email and password."""
+
+    def __init__(self):
+        super().__init__("PASSWORD_LOGIN_REQUIRED")
+
+
 class OnboardingStepMismatchError(AppException):
     """Onboarding action called while the merchant is on another step."""
 

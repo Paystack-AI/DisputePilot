@@ -18,6 +18,8 @@ class MerchantInDB(MerchantBase):
     hashed_password: str | None = None
     business_name: str
     paystack_integration_id: str | None = None
+    # google confirms the email, so google sign ups start verified
+    is_verified: bool = False
 
 
 class MerchantSettingsInDB(MerchantBase):
