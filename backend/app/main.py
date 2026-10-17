@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.api.clients.paystack import create_async_http_client
 from app.api.routers import router
 from app.core.config import get_settings
 from app.core.exception_handlers import ExceptionHandler
@@ -20,9 +21,11 @@ async def lifespan(app: FastAPI):
 
     app.state.limiters = {}
     app.state.redis = redis_client
+    app.state.paystack_http = create_async_http_client()
 
     yield
 
+    await app.state.paystack_http.aclose()
     await app.state.redis.aclose()
 
 

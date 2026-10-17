@@ -42,6 +42,8 @@ class Settings(BaseSettings):
 
     # paystack
     ENCRYPTION_KEY: str
+    PAYSTACK_BASE_URL: str = "https://api.paystack.co"
+    PAYSTACK_TIMEOUT: float = 15.0  # seconds
 
     # JWT
     JWT_ALGORITHM: str = "HS256"
