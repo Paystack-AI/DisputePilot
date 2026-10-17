@@ -1,3 +1,4 @@
+from celery.schedules import crontab
 from kombu import Exchange, Queue
 
 task_acks_late = True
@@ -23,3 +24,12 @@ task_queues = (
 task_default_queue = "disputepilot.celery"
 task_default_exchange = "disputepilot.direct"
 task_default_routing_key = "celery"
+
+# run by celery beat; times are utc
+beat_schedule: dict = {
+    "daily-transaction-sync": {
+        "task": "app.worker.tasks.transaction_sync.schedule_transaction_syncs",
+        "schedule": crontab(hour=1, minute=0),
+        "options": {"priority": 4},
+    },
+}

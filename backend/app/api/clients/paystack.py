@@ -13,7 +13,7 @@ Responses are Paystack's envelope as a dict: {"status", "message", "data", "meta
 """
 
 from abc import ABC, abstractmethod
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 from urllib.parse import quote
 
@@ -67,6 +67,9 @@ def _clean(values: dict[str, Any]) -> dict[str, Any]:
     for key, value in values.items():
         if value is None:
             continue
+        if isinstance(value, datetime) and value.tzinfo is not None:
+            # same instant whatever the session timezone handed back
+            value = value.astimezone(UTC)
         if isinstance(value, datetime | date):
             value = value.isoformat()
         cleaned[key] = value

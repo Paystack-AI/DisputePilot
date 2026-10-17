@@ -4,7 +4,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient, MockTransport, Request, Response
 from redis.asyncio import Redis
-from sqlalchemy import text
+from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncEngine,
@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
 from app.api import models  # noqa: F401
@@ -23,6 +24,7 @@ from app.database.session import get_session
 from app.deps import get_paystack_http, get_redis_client, read_limiter, write_limiter
 from app.main import app
 from app.worker.tasks.email import send_email
+from app.worker.tasks.transaction_sync import sync_transactions
 
 # keep test keys away from the dev data in the default redis db
 TEST_REDIS_URL: str = get_settings().REDIS_URL.rsplit("/", 1)[0] + "/15"
@@ -211,6 +213,37 @@ def queued_emails():
     """Capture queued emails instead of publishing them to the broker"""
     with patch.object(send_email, "apply_async") as apply_async:
         yield apply_async
+
+
+@pytest.fixture(autouse=True)
+def queued_syncs():
+    """Capture queued transaction syncs instead of publishing them to the broker"""
+    with patch.object(sync_transactions, "apply_async") as apply_async:
+        yield apply_async
+
+
+@pytest.fixture(scope="session")
+def sync_engine(async_engine: AsyncEngine):
+    """Celery code runs on sync sessions; same test database (tables from async_engine)"""
+    engine: Engine = create_engine(
+        get_settings().ASYNC_TEST_DB_URL.replace("+asyncpg", "+psycopg2"), poolclass=NullPool
+    )
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def sync_db(sync_engine: Engine):
+    """Sync session whose commits only release a savepoint; rolled back after the test"""
+    connection = sync_engine.connect()
+    transaction = connection.begin()
+    session = Session(bind=connection, join_transaction_mode="create_savepoint")
+
+    yield session
+
+    session.close()
+    transaction.rollback()
+    connection.close()
 
 
 @pytest.fixture(autouse=True)

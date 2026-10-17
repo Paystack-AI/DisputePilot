@@ -32,6 +32,8 @@ class Merchant(Base):
     )
     # last time the secret key was (re)connected; keys can be rotated on the Paystack dashboard
     paystack_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # start of the last transaction sync that finished; the next sync fetches from here
+    last_transaction_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_verified: Mapped[bool] = mapped_column(BOOLEAN, default=False)
     # soft delete: deactivated merchants keep their data and can reactivate
     is_active: Mapped[bool] = mapped_column(BOOLEAN, default=True)

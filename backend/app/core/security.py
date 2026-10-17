@@ -53,6 +53,10 @@ class Security:
         return f.encrypt(secret_key.encode()).decode()
 
     async def decrypt_secret_key(self, encrypted_key: str) -> str:
+        return self.decrypt_secret_key_sync(encrypted_key)
+
+    def decrypt_secret_key_sync(self, encrypted_key: str) -> str:
+        """For celery workers, which run without an event loop"""
         f = Fernet(self.SETTINGS.ENCRYPTION_KEY.encode())
         return f.decrypt(encrypted_key.encode()).decode()
 
