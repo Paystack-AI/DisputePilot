@@ -14,6 +14,7 @@ from app.api.schemas.onboarding import OnboardingResponse
 from app.api.schemas.settings import NotificationPreferences
 from app.api.services.merchant_onboarding import MerchantOnboardingService
 from app.api.services.merchant_settings import MerchantSettingsService
+from app.api.services.transaction_sync import enqueue_transaction_sync
 from app.core.exceptions import OnboardingStepMismatchError, ServerError
 
 
@@ -159,14 +160,18 @@ class OnboardingService:
             raise ServerError() from exc
 
         if start_sync:
-            # TODO: enqueue the transaction sync celery task (last 30 days) after the commit.
-            # The task should:
-            #  - set initial_sync_total, then update initial_sync_processed as it goes
-            #  - publish progress to the merchant's SSE stream (TODO: GET /events), throttled
-            #  - on success set initial_sync_status = completed and
-            #    current_step = first_reconciliation
-            #  - on failure set initial_sync_status = failed (and decide how a retry is
-            #    triggered, since the step has already moved on to initial_sync)
+            # after the commit, so the worker reads the in_progress state. The task sets
+            # the totals as it goes and completes or fails the step
+            # TODO: publish progress to the merchant's SSE stream (GET /events), throttled
+            try:
+                await enqueue_transaction_sync(curr_merchant.id, initial=True)
+            except ServerError:
+                # nothing will run the sync, so don't leave it showing as in progress
+                onboarding.initial_sync_status = InitialSyncStatus.FAILED
+                onboarding.updated_at = datetime.now(UTC)
+                await self._onboarding_service.update_onboarding(onboarding, commit=True)
+                raise
+
             sentry_logger.info(
                 "Initial transaction sync requested for merchant {merchant_id}",
                 merchant_id=merchant_id,

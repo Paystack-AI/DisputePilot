@@ -1,5 +1,8 @@
+from unittest.mock import MagicMock
+
 import pytest
 from httpx import AsyncClient, Response
+from kombu.exceptions import OperationalError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -79,6 +82,43 @@ class TestConnect:
         # rotating the key does not send onboarding back a step
         res = await async_client.get("/auth/me", headers=auth_headers)
         assert res.json()["data"]["onboarding"]["next_step"] == "initial_sync"
+
+    @pytest.mark.asyncio
+    async def test_rotate_key_queues_resync(
+        self, async_client: AsyncClient, auth_headers: dict, queued_syncs: MagicMock
+    ):
+        await _connect(async_client, auth_headers, TEST_SECRET_KEY)
+        await async_client.post("/onboarding/notifications", json={}, headers=auth_headers)
+        queued_syncs.reset_mock()
+
+        await _connect(async_client, auth_headers, LIVE_SECRET_KEY)
+
+        # from the last sync, not another 30 day initial sync
+        queued_syncs.assert_called_once()
+        assert queued_syncs.call_args.kwargs["kwargs"]["initial"] is False
+
+    @pytest.mark.asyncio
+    async def test_first_connect_does_not_sync(
+        self, async_client: AsyncClient, auth_headers: dict, queued_syncs: MagicMock
+    ):
+        # during onboarding the initial sync starts at the notifications step
+        await _connect(async_client, auth_headers, TEST_SECRET_KEY)
+
+        queued_syncs.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_rotate_key_broker_unavailable(
+        self, async_client: AsyncClient, auth_headers: dict, queued_syncs: MagicMock
+    ):
+        await _connect(async_client, auth_headers, TEST_SECRET_KEY)
+        await async_client.post("/onboarding/notifications", json={}, headers=auth_headers)
+        queued_syncs.side_effect = OperationalError("broker unavailable")
+
+        res: Response = await _connect(async_client, auth_headers, LIVE_SECRET_KEY)
+
+        # the key is saved; the daily sync covers the window
+        assert res.status_code == 200
+        assert res.json()["data"]["mode"] == "live"
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(

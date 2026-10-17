@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     PrimaryKeyConstraint,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy import (
@@ -31,7 +32,8 @@ class Transaction(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
     merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
     paystack_transaction_id: Mapped[int] = mapped_column(BIGINT)
-    paystack_reference: Mapped[str] = mapped_column(VARCHAR(100), unique=True, index=True)
+    # unique per merchant: two paystack accounts can use the same reference
+    paystack_reference: Mapped[str] = mapped_column(VARCHAR(100), index=True)
     order_id: Mapped[uuid.UUID | None] = mapped_column(UUID, ForeignKey("orders.id"))
     amount: Mapped[int] = mapped_column(BIGINT)
     currency: Mapped[Currency] = mapped_column(
@@ -78,4 +80,13 @@ class Transaction(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
-    __table_args__ = (PrimaryKeyConstraint("id", name="transactions_pk"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="transactions_pk"),
+        # the sync upserts on this
+        UniqueConstraint(
+            "merchant_id", "paystack_transaction_id", name="transactions_merchant_paystack_id_uq"
+        ),
+        UniqueConstraint(
+            "merchant_id", "paystack_reference", name="transactions_merchant_reference_uq"
+        ),
+    )

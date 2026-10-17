@@ -102,9 +102,14 @@ class OrderSource(enum.StrEnum):
 
 class TransactionChannel(enum.StrEnum):
     CARD = "card"
-    BANK_TRANSFER = "bank_transfer"
+    BANK = "bank"  # pay with bank (direct debit)
+    BANK_TRANSFER = "bank_transfer"  # also dedicated virtual accounts
     MOBILE_MONEY = "mobile_money"
     USSD = "ussd"
+    QR = "qr"
+    EFT = "eft"
+    APPLE_PAY = "apple_pay"
+    OTHER = "other"  # a channel paystack adds that isn't listed here yet
 
 
 class TransactionStatus(enum.StrEnum):

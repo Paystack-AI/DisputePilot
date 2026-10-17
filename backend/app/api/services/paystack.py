@@ -15,6 +15,7 @@ from app.api.schemas.merchants import PaystackConnection
 from app.api.schemas.paystack import PaystackConnect
 from app.api.services.merchant_onboarding import MerchantOnboardingService
 from app.api.services.merchants import MerchantService
+from app.api.services.transaction_sync import enqueue_transaction_sync
 from app.core.exceptions import (
     MerchantExistsError,
     PaystackIntegrationMismatchError,
@@ -156,12 +157,18 @@ class PaystackService:
 
         if rotated_after_onboarding_sync:
             # during onboarding the initial sync starts at the notifications step
-            # (POST /onboarding/notifications); after that, a new key needs its own sync
-            # TODO: enqueue the transaction sync celery task for the merchant
-            sentry_logger.info(
-                "Transaction sync requested after key rotation for merchant {merchant_id}",
-                merchant_id=merchant_id,
-            )
+            # (POST /onboarding/notifications); after that, a new key needs its own sync,
+            # from the last finished sync
+            try:
+                await enqueue_transaction_sync(curr_merchant.id, initial=False)
+                sentry_logger.info(
+                    "Transaction sync requested after key rotation for merchant {merchant_id}",
+                    merchant_id=merchant_id,
+                )
+            except ServerError:
+                # the key is saved, so connecting still succeeds; the daily sync covers
+                # the same window
+                pass
 
         sentry_logger.info(
             "Paystack {mode} key connected for merchant {merchant_id}",

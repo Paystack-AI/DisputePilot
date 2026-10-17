@@ -1,11 +1,15 @@
+from unittest.mock import MagicMock
+
 import pytest
 from httpx import AsyncClient, Response
+from kombu.exceptions import OperationalError
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.api.models.enums import OnboardingStep
 from app.api.models.merchant_onboarding import MerchantOnboarding
 from app.api.models.merchants import Merchant
+from app.worker.tasks.transaction_sync import INITIAL_SYNC_PRIORITY
 from tests.conftest import SIGN_UP_PAYLOAD
 from tests.test_paystack import TEST_SECRET_KEY
 
@@ -78,6 +82,31 @@ class TestConfigureNotifications:
         res = await async_client.get("/settings", headers=auth_headers)
         assert res.json()["data"]["notification_whatsapp"] == "+2348012345678"
         assert res.json()["data"]["notification_email"] is False
+
+    @pytest.mark.asyncio
+    async def test_queues_initial_sync(
+        self, async_client: AsyncClient, auth_headers: dict, queued_syncs: MagicMock
+    ):
+        await _connect(async_client, auth_headers)
+        await _configure(async_client, auth_headers, {})
+
+        queued_syncs.assert_called_once()
+        assert queued_syncs.call_args.kwargs["kwargs"]["initial"] is True
+        assert queued_syncs.call_args.kwargs["priority"] == INITIAL_SYNC_PRIORITY
+
+    @pytest.mark.asyncio
+    async def test_broker_unavailable_fails_the_sync(
+        self, async_client: AsyncClient, auth_headers: dict, queued_syncs: MagicMock
+    ):
+        await _connect(async_client, auth_headers)
+        queued_syncs.side_effect = OperationalError("broker unavailable")
+
+        res: Response = await _configure(async_client, auth_headers, {})
+        assert res.status_code == 500
+
+        # not left showing in progress when nothing will run it
+        res = await async_client.get("/onboarding", headers=auth_headers)
+        assert res.json()["data"]["initial_sync_status"] == "failed"
 
     @pytest.mark.asyncio
     async def test_empty_body_keeps_defaults(self, async_client: AsyncClient, auth_headers: dict):
