@@ -19,6 +19,7 @@ from app.api.services.onboarding import OnboardingService
 from app.api.services.order_management import OrderManagementService
 from app.api.services.paystack import PaystackService
 from app.api.services.settings import SettingsService
+from app.api.services.transactions import TransactionService
 from app.core.config import get_settings
 from app.core.exceptions import AuthenticationError
 from app.core.security import Security
@@ -111,6 +112,10 @@ async def get_order_management_service() -> OrderManagementService:
     return OrderManagementService()
 
 
+async def get_transaction_service() -> TransactionService:
+    return TransactionService()
+
+
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 MerchantServiceDep = Annotated[MerchantService, Depends(get_merchant_service)]
 PaystackServiceDep = Annotated[PaystackService, Depends(get_paystack_service)]
@@ -118,6 +123,7 @@ SettingsServiceDep = Annotated[SettingsService, Depends(get_settings_service)]
 OnboardingServiceDep = Annotated[OnboardingService, Depends(get_onboarding_service)]
 CustomerLedgerServiceDep = Annotated[CustomerLedgerService, Depends(get_customer_ledger_service)]
 OrderManagementServiceDep = Annotated[OrderManagementService, Depends(get_order_management_service)]
+TransactionServiceDep = Annotated[TransactionService, Depends(get_transaction_service)]
 
 # ------------------------ Auth dependency ---------------------------- #
 

@@ -12,6 +12,7 @@ from app.core.exceptions import (
     EmailNotVerifiedError,
     InvalidOAuthCodeError,
     InvalidOtpError,
+    MatchConflictError,
     MerchantExistsError,
     NotFoundError,
     OnboardingStepMismatchError,
@@ -22,9 +23,11 @@ from app.core.exceptions import (
     PasswordLoginRequiredError,
     PaystackIntegrationMismatchError,
     PaystackKeyInvalidError,
+    PaystackNotConnectedError,
     PaystackUpstreamError,
     RateLimitExceeded,
     ServerError,
+    SyncInProgressError,
     TokenExpiredError,
     exception_handler,
 )
@@ -151,6 +154,20 @@ class ExceptionHandler:
             OrderStatusTransitionError,
             exception_handler(
                 409, {"message": "An order can not move from {current_status} to {new_status}."}
+            ),
+        )
+        self.app.add_exception_handler(
+            MatchConflictError,
+            exception_handler(409, {"message": "This payment can not be matched to that order."}),
+        )
+        self.app.add_exception_handler(
+            PaystackNotConnectedError,
+            exception_handler(422, {"message": "Connect your Paystack account to continue."}),
+        )
+        self.app.add_exception_handler(
+            SyncInProgressError,
+            exception_handler(
+                409, {"message": "Your first sync is still running. Try again once it finishes."}
             ),
         )
         self.app.add_exception_handler(

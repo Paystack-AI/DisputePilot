@@ -58,6 +58,7 @@ async def add_transaction(
     status: TransactionStatus = TransactionStatus.SUCCESS,
     reconciliation_status: ReconciliationStatus = ReconciliationStatus.UNMATCHED,
     paid_at: datetime | None = None,
+    created_at: datetime | None = None,
     customer_email: str | None = None,
 ) -> UUID:
     paystack_id: int = next(_ids)
@@ -75,6 +76,7 @@ async def add_transaction(
             status=status,
             reconciliation_status=reconciliation_status,
             paid_at=paid_at or datetime.now(UTC),
+            paystack_created_at=created_at or paid_at or datetime.now(UTC),
             customer_email=customer_email,
         )
         session.add(transaction)

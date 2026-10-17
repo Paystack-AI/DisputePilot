@@ -151,6 +151,30 @@ class OrderStatusTransitionError(AppException):
         self.details = {"current_status": current_status}
 
 
+class MatchConflictError(AppException):
+    """The payment can not be matched to this order; reason says why."""
+
+    def __init__(self, reason: str):
+        super().__init__("MATCH_CONFLICT")
+        # order_cancelled | currency_mismatch | transaction_not_successful |
+        # already_matched_to_another_order
+        self.details = {"reason": reason}
+
+
+class PaystackNotConnectedError(AppException):
+    """The action needs a connected Paystack account."""
+
+    def __init__(self):
+        super().__init__("PAYSTACK_NOT_CONNECTED")
+
+
+class SyncInProgressError(AppException):
+    """The initial transaction sync is still running."""
+
+    def __init__(self):
+        super().__init__("SYNC_IN_PROGRESS")
+
+
 class PaystackKeyInvalidError(AppException):
     """Paystack rejected the secret key (wrong, revoked or from a deleted account)."""
 
