@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "backboard-sdk": "^1.5.19"
+  }
+}
