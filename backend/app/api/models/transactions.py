@@ -7,6 +7,7 @@ from sqlalchemy import (
     VARCHAR,
     DateTime,
     ForeignKey,
+    Index,
     PrimaryKeyConstraint,
     UniqueConstraint,
     text,
@@ -58,7 +59,9 @@ class Transaction(Base):
             values_callable=lambda e: [m.value for m in e],
         ),
     )
-    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # when the payment attempt started on paystack; every transaction has one, paid or not
+    paystack_created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))  # success only
     paystack_fees: Mapped[int | None] = mapped_column(BIGINT)
     customer_email: Mapped[str | None] = mapped_column(VARCHAR(255))
     customer_name: Mapped[str | None] = mapped_column(VARCHAR(255))
@@ -76,6 +79,9 @@ class Transaction(Base):
         default=ReconciliationStatus.UNMATCHED,
     )
     reconciled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # set while reconciliation_status is flagged: why the merchant flagged it for review
+    flag_reason: Mapped[str | None] = mapped_column(VARCHAR(255))
+    flagged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     synced_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -89,4 +95,6 @@ class Transaction(Base):
         UniqueConstraint(
             "merchant_id", "paystack_reference", name="transactions_merchant_reference_uq"
         ),
+        # the transaction list's date filter and default sort
+        Index("transactions_merchant_created_at_idx", "merchant_id", "paystack_created_at"),
     )

@@ -160,6 +160,7 @@ class TransactionSync:
                 "status": stmt.excluded.status,
                 "channel": stmt.excluded.channel,
                 "paid_at": stmt.excluded.paid_at,
+                "paystack_created_at": stmt.excluded.paystack_created_at,
                 "paystack_fees": stmt.excluded.paystack_fees,
                 "customer_email": stmt.excluded.customer_email,
                 "customer_name": stmt.excluded.customer_name,
@@ -193,6 +194,12 @@ class TransactionSync:
 
         customer: dict = transaction.get("customer") or {}
         metadata = transaction.get("metadata")
+        paid_at: datetime | None = _parse_datetime(
+            transaction.get("paid_at") or transaction.get("paidAt")
+        )
+        created_at: datetime | None = _parse_datetime(
+            transaction.get("created_at") or transaction.get("createdAt")
+        )
 
         return {
             "merchant_id": self._merchant.id,
@@ -202,7 +209,8 @@ class TransactionSync:
             "currency": currency,
             "channel": CHANNELS.get(transaction.get("channel") or "", TransactionChannel.OTHER),
             "status": status,
-            "paid_at": _parse_datetime(transaction.get("paid_at") or transaction.get("paidAt")),
+            "paystack_created_at": created_at or paid_at or synced_at,
+            "paid_at": paid_at,
             "paystack_fees": transaction.get("fees"),
             "customer_email": _customer_email(customer),
             "customer_name": _customer_name(customer),
