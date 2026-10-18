@@ -8,6 +8,7 @@ from httpx import AsyncClient
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.clients.minio import MinioStorage
 from app.api.models.merchants import Merchant
 from app.api.repo.merchants import MerchantRepository
 from app.api.repo.redis import RedisRepository
@@ -53,6 +54,16 @@ async def get_paystack_http(request: Request) -> AsyncClient:
 
 
 PaystackHttp = Annotated[AsyncClient, Depends(get_paystack_http)]
+
+
+# ------------------- Object storage dependency ------------------------------ #
+async def get_minio(request: Request) -> MinioStorage:
+    """The app's single minio client, created in the lifespan"""
+    minio: MinioStorage = request.app.state.minio
+    return minio
+
+
+MinioDep = Annotated[MinioStorage, Depends(get_minio)]
 
 
 # ------------------- Security dependency ------------------------------ #

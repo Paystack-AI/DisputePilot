@@ -73,6 +73,16 @@ class Settings(BaseSettings):
     # Argon2
     ARGON2_PASSWORD_PEPPER: str
 
+    # Minio
+    MINIO_ENDPOINT: str
+    MINIO_SECRET_KEY: str
+    MINIO_ACCESS_KEY: str
+    # https; true when minio sits behind tls (production), false for local docker
+    MINIO_SECURE: bool = False
+    # must match the region the minio server is configured with (MINIO_SITE_REGION)
+    MINIO_REGION: str = "eu-west-1"
+    MINIO_BUCKET: str = "disputepilot"
+
 
 @lru_cache(maxsize=1)
 def get_settings():
