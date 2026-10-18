@@ -1,14 +1,17 @@
 import asyncio
 from contextlib import asynccontextmanager
 
+import sentry_sdk.logger as sentry_logger
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.api.clients.minio import create_minio_storage
 from app.api.clients.paystack import create_async_http_client
 from app.api.routers import router
 from app.api.services.ai_streams import AI_RESULT_HANDLERS, AiResultConsumer, stop_task
 from app.core.config import get_settings
 from app.core.exception_handlers import ExceptionHandler
+from app.core.exceptions import StorageUpstreamError
 from app.core.security import Security
 from app.database.session import redis_client
 from app.middleware import RequestIDMiddleware
@@ -24,6 +27,15 @@ async def lifespan(app: FastAPI):
     app.state.limiters = {}
     app.state.redis = redis_client
     app.state.paystack_http = create_async_http_client()
+    # one client for the whole app; the sdk pools connections and is thread-safe
+    app.state.minio = create_minio_storage()
+
+    try:
+        await app.state.minio.ensure_bucket(SETTINGS.MINIO_BUCKET)
+    except StorageUpstreamError:
+        # storage being down (or not configured yet) should not stop the api from starting;
+        # uploads fail with 502 until it is reachable, and the next start retries the bucket
+        sentry_logger.error("Bucket {bucket} could not be ensured", bucket=SETTINGS.MINIO_BUCKET)
 
     # one loop reading ai results (ai -> backend); jobs for the ai are added on demand
     ai_result_task: asyncio.Task | None = None

@@ -88,6 +88,15 @@ class Settings(BaseSettings):
     # how long one read blocks waiting for new messages, and how often pending ones retry
     AI_RESULT_BLOCK_MS: int = 5_000
     AI_RESULT_RETRY_PENDING_SECONDS: int = 60
+    # Minio
+    MINIO_ENDPOINT: str
+    MINIO_SECRET_KEY: str
+    MINIO_ACCESS_KEY: str
+    # https; true when minio sits behind tls (production), false for local docker
+    MINIO_SECURE: bool = False
+    # must match the region the minio server is configured with (MINIO_SITE_REGION)
+    MINIO_REGION: str = "eu-west-1"
+    MINIO_BUCKET: str = "disputepilot"
 
 
 @lru_cache(maxsize=1)
