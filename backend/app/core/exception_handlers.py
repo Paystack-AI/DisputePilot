@@ -27,6 +27,7 @@ from app.core.exceptions import (
     PaystackUpstreamError,
     RateLimitExceeded,
     ServerError,
+    StorageUpstreamError,
     SyncInProgressError,
     TokenExpiredError,
     exception_handler,
@@ -188,6 +189,12 @@ class ExceptionHandler:
             PaystackUpstreamError,
             exception_handler(
                 502, {"message": "Paystack could not be reached. Try again shortly."}
+            ),
+        )
+        self.app.add_exception_handler(
+            StorageUpstreamError,
+            exception_handler(
+                502, {"message": "File storage could not be reached. Try again shortly."}
             ),
         )
         self.app.add_exception_handler(
