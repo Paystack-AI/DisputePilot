@@ -27,7 +27,11 @@ class Security:
 
     def __init__(self):
         self.oauth: OAuth = self.OAUTH
-        self.arg2_hasher = Argon2Hasher()
+        self.arg2_hasher = Argon2Hasher(
+            time_cost=self.SETTINGS.ARGON2_TIME_COST,
+            memory_cost=self.SETTINGS.ARGON2_MEMORY_COST,
+            parallelism=self.SETTINGS.ARGON2_PARALLELISM,
+        )
 
     def _encode_jwt(self, payload: dict, key: str) -> str:
         return jwt.encode(

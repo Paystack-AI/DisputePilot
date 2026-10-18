@@ -72,6 +72,11 @@ class Settings(BaseSettings):
 
     # Argon2
     ARGON2_PASSWORD_PEPPER: str
+    # cost of new hashes (pwdlib defaults). Every hash stores its own parameters, so
+    # changing these never breaks existing passwords. Tests lower them for speed.
+    ARGON2_TIME_COST: int = 3
+    ARGON2_MEMORY_COST: int = 65536  # KiB
+    ARGON2_PARALLELISM: int = 4
 
     # Redis streams between the backend and the ai worker
     AI_REQUEST_STREAM: str = "ai:stream:requests"  # backend -> ai
