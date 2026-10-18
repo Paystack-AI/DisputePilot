@@ -28,12 +28,16 @@ async def lifespan(app: FastAPI):
     # one client for the whole app; the sdk pools connections and is thread-safe
     app.state.minio = create_minio_storage()
 
-    try:
-        await app.state.minio.ensure_bucket(SETTINGS.MINIO_BUCKET)
-    except StorageUpstreamError:
-        # storage being down (or not configured yet) should not stop the api from starting;
-        # uploads fail with 502 until it is reachable, and the next start retries the bucket
-        sentry_logger.error("Bucket {bucket} could not be ensured", bucket=SETTINGS.MINIO_BUCKET)
+    # off in tests, where the lifespan runs for every test and no storage is running
+    if SETTINGS.MINIO_ENSURE_BUCKET_ON_STARTUP:
+        try:
+            await app.state.minio.ensure_bucket(SETTINGS.MINIO_BUCKET)
+        except StorageUpstreamError:
+            # storage being down (or not configured yet) should not stop the api from
+            # starting; uploads fail with 502 until it is reachable, the next start retries
+            sentry_logger.error(
+                "Bucket {bucket} could not be ensured", bucket=SETTINGS.MINIO_BUCKET
+            )
 
     yield
 

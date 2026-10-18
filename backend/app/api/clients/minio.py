@@ -1,5 +1,6 @@
 from io import BytesIO
 
+import certifi
 import sentry_sdk
 import sentry_sdk.logger as sentry_logger
 import urllib3
@@ -16,6 +17,24 @@ SETTINGS = get_settings()
 DEFAULT_CONTENT_TYPE: str = "application/octet-stream"
 # multipart chunk size for uploads of unknown length (minio's minimum is 5 MiB)
 PART_SIZE: int = 10 * 1024 * 1024
+
+
+def _http_pool() -> urllib3.PoolManager:
+    """The sdk's default pool retries a refused connection with growing backoff (~30 s in
+    total) before failing. Storage being down should fail fast instead: a short connect
+    timeout and two retries for transient server errors. Reads keep a long timeout for
+    large files"""
+    return urllib3.PoolManager(
+        timeout=urllib3.Timeout(connect=3, read=120),
+        # connect=0: a refused or unreachable server is not retried (it will not be up a
+        # moment later); 5xx responses are
+        retries=urllib3.Retry(
+            total=2, connect=0, backoff_factor=0.2, status_forcelist=[500, 502, 503, 504]
+        ),
+        maxsize=10,
+        cert_reqs="CERT_REQUIRED",
+        ca_certs=certifi.where(),
+    )
 
 
 class MinioStorage:
@@ -38,6 +57,7 @@ class MinioStorage:
             secret_key=secret_key,
             secure=secure,
             region=region,
+            http_client=_http_pool(),
         )
 
     def _upload(

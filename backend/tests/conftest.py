@@ -29,6 +29,10 @@ from app.worker.tasks.transaction_sync import sync_transactions
 # keep test keys away from the dev data in the default redis db
 TEST_REDIS_URL: str = get_settings().REDIS_URL.rsplit("/", 1)[0] + "/15"
 
+# the lifespan runs for every test and no minio runs in tests (or ci): without this each
+# test would wait for the bucket check to fail
+get_settings().MINIO_ENSURE_BUCKET_ON_STARTUP = False
+
 OTP_CODE: str = "123456"
 
 # test-only credentials

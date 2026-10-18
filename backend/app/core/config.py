@@ -82,6 +82,8 @@ class Settings(BaseSettings):
     # must match the region the minio server is configured with (MINIO_SITE_REGION)
     MINIO_REGION: str = "eu-west-1"
     MINIO_BUCKET: str = "disputepilot"
+    # create the bucket when the api starts if it is missing
+    MINIO_ENSURE_BUCKET_ON_STARTUP: bool = True
 
 
 @lru_cache(maxsize=1)
