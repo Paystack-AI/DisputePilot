@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -5,6 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.clients.paystack import create_async_http_client
 from app.api.routers import router
+from app.api.services.ai_streams import AI_RESULT_HANDLERS, AiResultConsumer, stop_task
 from app.core.config import get_settings
 from app.core.exception_handlers import ExceptionHandler
 from app.core.security import Security
@@ -23,8 +25,15 @@ async def lifespan(app: FastAPI):
     app.state.redis = redis_client
     app.state.paystack_http = create_async_http_client()
 
+    # one loop reading ai results (ai -> backend); jobs for the ai are added on demand
+    ai_result_task: asyncio.Task | None = None
+    if SETTINGS.AI_RESULT_CONSUMER_ENABLED:
+        consumer = AiResultConsumer(app.state.redis, AI_RESULT_HANDLERS)
+        ai_result_task = asyncio.create_task(consumer.run(), name="ai-result-consumer")
+
     yield
 
+    await stop_task(ai_result_task)
     await app.state.paystack_http.aclose()
     await app.state.redis.aclose()
 

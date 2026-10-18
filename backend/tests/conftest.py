@@ -29,6 +29,9 @@ from app.worker.tasks.transaction_sync import sync_transactions
 # keep test keys away from the dev data in the default redis db
 TEST_REDIS_URL: str = get_settings().REDIS_URL.rsplit("/", 1)[0] + "/15"
 
+# the lifespan runs for every test; the ai result loop is tested directly instead
+get_settings().AI_RESULT_CONSUMER_ENABLED = False
+
 OTP_CODE: str = "123456"
 
 # test-only credentials
