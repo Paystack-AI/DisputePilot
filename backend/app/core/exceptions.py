@@ -196,6 +196,13 @@ class PaystackUpstreamError(AppException):
         super().__init__("PAYSTACK_UPSTREAM_ERROR")
 
 
+class StorageUpstreamError(AppException):
+    """Object storage (minio) could not be reached or failed; the request can be retried."""
+
+    def __init__(self):
+        super().__init__("STORAGE_UPSTREAM_ERROR")
+
+
 class RateLimitExceeded(AppException):
     def __init__(self, retry_after: int):
         super().__init__("RATE_LIMITED")

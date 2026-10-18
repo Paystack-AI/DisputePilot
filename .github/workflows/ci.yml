@@ -117,6 +117,9 @@ jobs:
       ARGON2_PASSWORD_PEPPER: ci-argon2-pepper  # pragma: allowlist secret
       SESSION_SECRET_KEY: ci-session-secret-key  # pragma: allowlist secret
       OTP_SECRET_KEY: ci-otp-secret-key   # pragma: allowlist secret
+      MINIO_ENDPOINT: localhost:9000
+      MINIO_ACCESS_KEY: ci-minio-access-key  # pragma: allowlist secret
+      MINIO_SECRET_KEY: ci-minio-secret-key  # pragma: allowlist secret
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5

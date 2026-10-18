@@ -78,6 +78,31 @@ class Settings(BaseSettings):
     ARGON2_MEMORY_COST: int = 65536  # KiB
     ARGON2_PARALLELISM: int = 4
 
+    # Redis streams between the backend and the ai worker
+    AI_REQUEST_STREAM: str = "ai:stream:requests"  # backend -> ai
+    AI_RESULT_STREAM: str = "ai:stream:results"  # ai -> backend
+    AI_RESULT_GROUP: str = "backend"
+    # stable across restarts so a restarted process replays its own pending messages
+    AI_RESULT_CONSUMER: str = "backend-1"
+    # off in tests, where the lifespan runs for every test
+    AI_RESULT_CONSUMER_ENABLED: bool = True
+    # approximate cap on each stream's length; older (acked) entries are trimmed
+    AI_STREAM_MAXLEN: int = 10_000
+    # deliveries after which a failing message is moved to the dead-letter stream
+    AI_RESULT_MAX_DELIVERIES: int = 5
+    # how long one read blocks waiting for new messages, and how often pending ones retry
+    AI_RESULT_BLOCK_MS: int = 5_000
+    AI_RESULT_RETRY_PENDING_SECONDS: int = 60
+    # Minio
+    MINIO_ENDPOINT: str
+    MINIO_SECRET_KEY: str
+    MINIO_ACCESS_KEY: str
+    # https; true when minio sits behind tls (production), false for local docker
+    MINIO_SECURE: bool = False
+    # must match the region the minio server is configured with (MINIO_SITE_REGION)
+    MINIO_REGION: str = "eu-west-1"
+    MINIO_BUCKET: str = "disputepilot"
+
 
 @lru_cache(maxsize=1)
 def get_settings():

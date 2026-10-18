@@ -34,6 +34,8 @@ TEST_REDIS_URL: str = get_settings().REDIS_URL.rsplit("/", 1)[0] + "/15"
 get_settings().ARGON2_TIME_COST = 1
 get_settings().ARGON2_MEMORY_COST = 1024
 get_settings().ARGON2_PARALLELISM = 1
+# the lifespan runs for every test; the ai result loop is tested directly instead
+get_settings().AI_RESULT_CONSUMER_ENABLED = False
 
 OTP_CODE: str = "123456"
 
