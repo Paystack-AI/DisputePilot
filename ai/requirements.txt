@@ -1,1 +1,2 @@
-backboard-sdk
+﻿backboard-sdk
+redis>=5.0
