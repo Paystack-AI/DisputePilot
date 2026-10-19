@@ -113,6 +113,7 @@ class AiRequestConsumer:
         """Reads until cancelled. Redis errors restart the loop with backoff instead of
         ending the task"""
         backoff: float = 1.0
+        task: asyncio.Task | None = asyncio.current_task()
 
         while True:
             try:
@@ -127,6 +128,11 @@ class AiRequestConsumer:
                     # let other tasks run even when a read returns without waiting on io
                     # (an in-memory client, or a stream that always has entries)
                     await asyncio.sleep(0)
+
+                    # a cancel that lands inside a redis call can be absorbed by the client
+                    # (seen on python 3.11), which would leave this loop running forever
+                    if task is not None and task.cancelling():
+                        raise asyncio.CancelledError
 
                     # jobs whose handler failed stay pending; retry them periodically
                     if monotonic() - last_pending_pass >= self._retry_pending_seconds:
@@ -143,7 +149,12 @@ class AiRequestConsumer:
     async def process_new(self) -> int:
         """Blocks up to block_ms for jobs never delivered before; returns how many"""
         response = await self._redis.xreadgroup(
-            self.group, self.consumer, {self.stream: ">"}, count=10, block=self._block_ms
+            self.group,
+            self.consumer,
+            {self.stream: ">"},
+            count=10,
+            # 0 means don't block: redis's own BLOCK 0 would wait forever
+            block=self._block_ms or None,
         )
         entries = self._entries(response)
 

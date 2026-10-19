@@ -44,9 +44,15 @@ class Recorder:
             raise RuntimeError("handler failed")
 
 
-def _consumer(redis, handlers: dict, **kwargs) -> AiRequestConsumer:
+def _consumer(redis, handlers: dict, block_ms: int = 10, **kwargs) -> AiRequestConsumer:
     return AiRequestConsumer(
-        redis, handlers, SETTINGS, stream=STREAM, block_ms=10, retry_pending_seconds=0, **kwargs
+        redis,
+        handlers,
+        SETTINGS,
+        stream=STREAM,
+        block_ms=block_ms,
+        retry_pending_seconds=0,
+        **kwargs,
     )
 
 
@@ -199,7 +205,9 @@ class TestConsumer:
     @pytest.mark.asyncio
     async def test_run_loop(self, redis):
         handler = Recorder()
-        consumer = _consumer(redis, {"ai:dispute:classify": handler})
+        # non-blocking reads: fakeredis's blocking read on an empty stream never returns on
+        # python 3.11 (ci), which is a fakeredis bug, not the loop's; real redis blocks fine
+        consumer = _consumer(redis, {"ai:dispute:classify": handler}, block_ms=0)
         task = asyncio.create_task(consumer.run())
 
         try:
