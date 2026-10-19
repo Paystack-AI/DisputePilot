@@ -12,6 +12,7 @@ async def classify(message: StreamMessage):
     result = ...  # call the model with message.payload
     await publisher.publish("ai:result:classified", message.job_id, result)
 
+
 REQUEST_HANDLERS["ai:dispute:classify"] = classify
 ```
 
