@@ -35,8 +35,7 @@ async def get_settings(
     response_model=SuccessResponse[SettingsResponse],
     description=(
         "Update any combination of the merchant's settings, including notification "
-        "preferences after onboarding. Omitted fields are unchanged; "
-        "notification_whatsapp set to null disables whatsapp alerts"
+        "preferences after onboarding. Omitted fields are unchanged"
     ),
     dependencies=[write_limiter],
 )
