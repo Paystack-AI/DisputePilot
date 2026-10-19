@@ -56,7 +56,7 @@ class SettingsService:
         await self._uow_settings(uow)
 
         merchant_id: str = str(curr_merchant.id)
-        # unset fields are left alone; an explicit null whatsapp number disables whatsapp
+        # unset fields are left alone
         changes: dict = update_payload.model_dump(exclude_unset=True)
 
         settings: MerchantSettings = await self._get_settings(curr_merchant)

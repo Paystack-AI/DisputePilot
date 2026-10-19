@@ -68,11 +68,7 @@ class TestConfigureNotifications:
     async def test_configure(self, async_client: AsyncClient, auth_headers: dict):
         await _connect(async_client, auth_headers)
 
-        res: Response = await _configure(
-            async_client,
-            auth_headers,
-            {"notification_whatsapp": "+2348012345678", "notification_email": False},
-        )
+        res: Response = await _configure(async_client, auth_headers, {"notification_email": False})
         data: dict = res.json()["data"]
 
         assert res.status_code == 200
@@ -80,7 +76,6 @@ class TestConfigureNotifications:
         assert data["initial_sync_status"] == "in_progress"
 
         res = await async_client.get("/settings", headers=auth_headers)
-        assert res.json()["data"]["notification_whatsapp"] == "+2348012345678"
         assert res.json()["data"]["notification_email"] is False
 
     @pytest.mark.asyncio
@@ -118,7 +113,6 @@ class TestConfigureNotifications:
 
         res = await async_client.get("/settings", headers=auth_headers)
         assert res.json()["data"]["notification_email"] is True
-        assert res.json()["data"]["notification_whatsapp"] is None
 
     @pytest.mark.asyncio
     async def test_before_connecting(self, async_client: AsyncClient, auth_headers: dict):
@@ -145,7 +139,8 @@ class TestConfigureNotifications:
         "payload",
         [
             {"notification_email": None},
-            {"notification_whatsapp": "08012345678"},
+            # whatsapp alerts are not offered (pending meta business verification)
+            {"notification_whatsapp": "+2348012345678"},
             # only notification preferences belong to this step
             {"timezone": "Africa/Lagos"},
         ],

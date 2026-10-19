@@ -53,8 +53,9 @@ class EvidenceFileType(enum.StrEnum):
 
 
 class NotificationChannel(enum.StrEnum):
-    WHATSAPP = "whatsapp"
     EMAIL = "email"
+    # shown in the dashboard over sse
+    IN_APP = "in_app"
 
 
 class NotificationMessageType(enum.StrEnum):
