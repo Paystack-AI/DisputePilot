@@ -15,12 +15,14 @@ from app.api.repo.redis import RedisRepository
 from app.api.repo.uow import UnitOfWorkRepository
 from app.api.services.auth import AuthService
 from app.api.services.customer_ledger import CustomerLedgerService
+from app.api.services.fulfillment_log import FulfillmentLogService
 from app.api.services.merchants import MerchantService
 from app.api.services.onboarding import OnboardingService
 from app.api.services.order_management import OrderManagementService
 from app.api.services.paystack import PaystackService
 from app.api.services.settings import SettingsService
 from app.api.services.transactions import TransactionService
+from app.api.services.uploads import UploadService
 from app.core.config import get_settings
 from app.core.exceptions import AuthenticationError
 from app.core.security import Security
@@ -127,7 +129,17 @@ async def get_transaction_service() -> TransactionService:
     return TransactionService()
 
 
+async def get_upload_service() -> UploadService:
+    return UploadService()
+
+
+async def get_fulfillment_log_service() -> FulfillmentLogService:
+    return FulfillmentLogService()
+
+
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+UploadServiceDep = Annotated[UploadService, Depends(get_upload_service)]
+FulfillmentLogServiceDep = Annotated[FulfillmentLogService, Depends(get_fulfillment_log_service)]
 MerchantServiceDep = Annotated[MerchantService, Depends(get_merchant_service)]
 PaystackServiceDep = Annotated[PaystackService, Depends(get_paystack_service)]
 SettingsServiceDep = Annotated[SettingsService, Depends(get_settings_service)]

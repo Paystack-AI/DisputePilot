@@ -6,6 +6,7 @@ SETTINGS = get_settings()
 
 tasks: list[str] = [
     "app.worker.tasks.email",
+    "app.worker.tasks.files",
     "app.worker.tasks.transaction_sync",
 ]
 

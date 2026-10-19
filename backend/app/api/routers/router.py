@@ -3,11 +3,13 @@ from fastapi import APIRouter
 from app.api.routers import (
     auth,
     customers,
+    fulfillments,
     onboarding,
     orders,
     paystack,
     settings,
     transactions,
+    uploads,
 )
 from app.core.config import get_settings
 
@@ -21,3 +23,5 @@ router.include_router(settings.router, tags=["Settings"])
 router.include_router(customers.router, tags=["Customers"])
 router.include_router(orders.router, tags=["Orders"])
 router.include_router(transactions.router, tags=["Transactions"])
+router.include_router(uploads.router, tags=["Uploads"])
+router.include_router(fulfillments.router, tags=["Fulfillments"])

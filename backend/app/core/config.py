@@ -105,6 +105,14 @@ class Settings(BaseSettings):
     # create the bucket when the api starts if it is missing
     MINIO_ENSURE_BUCKET_ON_STARTUP: bool = True
 
+    # Uploads (images only)
+    UPLOAD_MAX_FILE_BYTES: int = 10 * 1024 * 1024
+    UPLOAD_MAX_FILES: int = 10
+    # largest image accepted, in pixels; guards against decompression bombs
+    UPLOAD_MAX_IMAGE_PIXELS: int = 50_000_000
+    # uploads never attached to a fulfillment (or dispute) are deleted after this
+    UPLOAD_UNATTACHED_TTL_HOURS: int = 24
+
 
 @lru_cache(maxsize=1)
 def get_settings():
