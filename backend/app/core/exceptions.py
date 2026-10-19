@@ -203,6 +203,32 @@ class StorageUpstreamError(AppException):
         super().__init__("STORAGE_UPSTREAM_ERROR")
 
 
+class PayloadTooLargeError(AppException):
+    """The upload request, or one of its files, is over the size limit."""
+
+    def __init__(self, limit_mb: int, file_name: str | None = None):
+        super().__init__("PAYLOAD_TOO_LARGE")
+        self.limit_mb = limit_mb
+        if file_name is not None:
+            self.details = {"file_name": file_name}
+
+
+class UnsupportedFileTypeError(AppException):
+    """The file is not a JPEG, PNG, WebP or HEIC image (checked from its content)."""
+
+    def __init__(self, file_name: str):
+        super().__init__("UNSUPPORTED_FILE_TYPE")
+        self.details = {"file_name": file_name}
+
+
+class FileAlreadyAttachedError(AppException):
+    """The uploaded file already belongs to another fulfillment or dispute."""
+
+    def __init__(self, file_id: str):
+        super().__init__("FILE_ALREADY_ATTACHED")
+        self.details = {"file_id": file_id}
+
+
 class RateLimitExceeded(AppException):
     def __init__(self, retry_after: int):
         super().__init__("RATE_LIMITED")

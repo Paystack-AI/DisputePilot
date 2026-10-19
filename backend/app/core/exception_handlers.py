@@ -10,6 +10,7 @@ from app.core.exceptions import (
     CustomerEmailLockedError,
     CustomerExistsError,
     EmailNotVerifiedError,
+    FileAlreadyAttachedError,
     InvalidOAuthCodeError,
     InvalidOtpError,
     MatchConflictError,
@@ -21,6 +22,7 @@ from app.core.exceptions import (
     OrderStatusTransitionError,
     OtpAttemptsExceededError,
     PasswordLoginRequiredError,
+    PayloadTooLargeError,
     PaystackIntegrationMismatchError,
     PaystackKeyInvalidError,
     PaystackNotConnectedError,
@@ -30,6 +32,7 @@ from app.core.exceptions import (
     StorageUpstreamError,
     SyncInProgressError,
     TokenExpiredError,
+    UnsupportedFileTypeError,
     exception_handler,
 )
 
@@ -196,6 +199,20 @@ class ExceptionHandler:
             exception_handler(
                 502, {"message": "File storage could not be reached. Try again shortly."}
             ),
+        )
+        self.app.add_exception_handler(
+            PayloadTooLargeError,
+            exception_handler(413, {"message": "Uploads are limited to {limit_mb} MB per file."}),
+        )
+        self.app.add_exception_handler(
+            UnsupportedFileTypeError,
+            exception_handler(
+                415, {"message": "Only JPEG, PNG, WebP and HEIC images can be uploaded."}
+            ),
+        )
+        self.app.add_exception_handler(
+            FileAlreadyAttachedError,
+            exception_handler(409, {"message": "This file is already attached to another record."}),
         )
         self.app.add_exception_handler(
             RateLimitExceeded,

@@ -20,8 +20,15 @@ from app.api import models  # noqa: F401
 from app.api.models.base import Base
 from app.api.services.otp import OtpService
 from app.core.config import get_settings
+from app.core.exceptions import NotFoundError, StorageUpstreamError
 from app.database.session import get_session
-from app.deps import get_paystack_http, get_redis_client, read_limiter, write_limiter
+from app.deps import (
+    get_minio,
+    get_paystack_http,
+    get_redis_client,
+    read_limiter,
+    write_limiter,
+)
 from app.main import app
 from app.worker.tasks.email import send_email
 from app.worker.tasks.transaction_sync import sync_transactions
@@ -166,6 +173,33 @@ async def paystack_api():
         yield fake
 
 
+class FakeStorage:
+    """Stands in for minio: objects live in a dict. fail_uploads_after makes the nth
+    upload raise, to test that a failed batch leaves nothing behind"""
+
+    def __init__(self):
+        self.objects: dict[str, tuple[bytes, str]] = {}
+        self.fail_uploads_after: int | None = None
+
+    async def upload_bytes(self, bucket_name, object_name, data, content_type="image/jpeg"):
+        if self.fail_uploads_after is not None and len(self.objects) >= self.fail_uploads_after:
+            raise StorageUpstreamError()
+        self.objects[object_name] = (data, content_type)
+
+    async def retrieve(self, bucket_name, object_name) -> bytes:
+        if object_name not in self.objects:
+            raise NotFoundError("File")
+        return self.objects[object_name][0]
+
+    async def delete(self, bucket_name, object_name):
+        self.objects.pop(object_name, None)
+
+
+@pytest.fixture
+def storage() -> FakeStorage:
+    return FakeStorage()
+
+
 async def _no_limit():
     return None
 
@@ -176,6 +210,7 @@ async def async_client(
     session_maker: async_sessionmaker[AsyncSession],
     test_redis_client: Redis,
     paystack_api: FakePaystack,
+    storage: FakeStorage,
 ):
     async def get_test_session():
         session = session_maker()
@@ -186,6 +221,8 @@ async def async_client(
     app.dependency_overrides[get_redis_client] = lambda: test_redis_client
     # no test reaches the real paystack api
     app.dependency_overrides[get_paystack_http] = lambda: paystack_api.client
+    # no test reaches object storage
+    app.dependency_overrides[get_minio] = lambda: storage
 
     rate_limited: bool = request.node.get_closest_marker("rate_limited") is not None
 

@@ -6,8 +6,10 @@ from sqlalchemy import (
     VARCHAR,
     DateTime,
     ForeignKey,
+    Index,
     PrimaryKeyConstraint,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy import (
@@ -37,11 +39,23 @@ class Fulfillment(Base):
     tracking_number: Mapped[str | None] = mapped_column(VARCHAR(255))
     recipient_name: Mapped[str | None] = mapped_column(VARCHAR(255))
     delivery_address: Mapped[str | None] = mapped_column(Text)
-    proof_photo_url: Mapped[str | None] = mapped_column(Text)
-    proof_document_url: Mapped[str | None] = mapped_column(Text)
+    # proof photos are rows in files (fulfillment_id), so several can be attached
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Idempotency-Key of the create request: a retried create returns this record instead
+    # of logging the delivery twice
+    idempotency_key: Mapped[str | None] = mapped_column(VARCHAR(255))
 
-    __table_args__ = (PrimaryKeyConstraint("id", name="fulfillments_pk"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="fulfillments_pk"),
+        # NULLs are distinct, so creates without a key are unaffected
+        UniqueConstraint(
+            "merchant_id", "idempotency_key", name="fulfillments_merchant_idempotency_key_uq"
+        ),
+        Index("fulfillments_merchant_delivery_date_idx", "merchant_id", "delivery_date"),
+        Index("fulfillments_order_id_idx", "order_id"),
+        Index("fulfillments_transaction_id_idx", "transaction_id"),
+    )

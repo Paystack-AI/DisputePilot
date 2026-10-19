@@ -32,4 +32,10 @@ beat_schedule: dict = {
         "schedule": crontab(hour=1, minute=0),
         "options": {"priority": 4},
     },
+    # uploads never attached to a fulfillment, or detached from one
+    "hourly-unattached-file-cleanup": {
+        "task": "app.worker.tasks.files.delete_unattached_files",
+        "schedule": crontab(minute=30),
+        "options": {"priority": 1},
+    },
 }
