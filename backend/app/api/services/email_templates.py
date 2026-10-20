@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from html import escape
 
 from app.api.models.enums import OtpPurpose
@@ -76,3 +76,45 @@ def reconciliation_summary_email(
         "records are the strongest defence if a customer disputes them.</p>"
     )
     return f"DisputePilot: Reconciliation for {period}", html
+
+
+def _money(amount: int, currency: str) -> str:
+    return f"{currency} {amount / 100:,.2f}"
+
+
+def dispute_alert_email(
+    business_name: str, amount: int, currency: str, reference: str, due_at: datetime
+) -> tuple[str, str]:
+    """A customer opened a dispute"""
+    html: str = (
+        f"<p>A customer has disputed a payment to <strong>{escape(business_name)}</strong>.</p>"
+        f"<p>Payment <strong>{escape(reference)}</strong>, {_money(amount, currency)}.</p>"
+        f"<p>Respond by <strong>{due_at:%d %b %Y, %H:%M} UTC</strong>, or Paystack refunds "
+        "the customer automatically.</p>"
+        "<p>Open DisputePilot to generate the evidence and respond.</p>"
+    )
+    return f"DisputePilot: New dispute on {reference}", html
+
+
+def deadline_warning_email(reference: str, due_at: datetime) -> tuple[str, str]:
+    """Paystack's reminder that the response deadline is close"""
+    html: str = (
+        f"<p>The dispute on payment <strong>{escape(reference)}</strong> still needs a "
+        f"response. The deadline is <strong>{due_at:%d %b %Y, %H:%M} UTC</strong>.</p>"
+        "<p>Without a response Paystack refunds the customer automatically.</p>"
+    )
+    return f"DisputePilot: Dispute deadline approaching for {reference}", html
+
+
+def dispute_resolved_email(reference: str, outcome: str) -> tuple[str, str]:
+    """The dispute was closed; outcome is won, lost or auto_accepted"""
+    lines: dict[str, str] = {
+        "won": "was resolved in your favour. No refund is due.",
+        "lost": "was resolved in the customer's favour and the payment is refunded.",
+        "auto_accepted": "was not answered before the deadline, so the customer was refunded.",
+    }
+    html: str = (
+        f"<p>The dispute on payment <strong>{escape(reference)}</strong> "
+        f"{lines.get(outcome, 'has been resolved.')}</p>"
+    )
+    return f"DisputePilot: Dispute on {reference} resolved", html

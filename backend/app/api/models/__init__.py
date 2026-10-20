@@ -14,6 +14,7 @@ from app.api.models.reconciliation_sessions import ReconciliationSession
 from app.api.models.transactions import Transaction
 from app.api.models.trust_profiles import TrustProfile
 from app.api.models.trust_snapshots import TrustSnapshot
+from app.api.models.webhook_events import WebhookEvent
 
 __all__ = [
     "Base",
@@ -32,4 +33,5 @@ __all__ = [
     "MerchantOnboarding",
     "TrustProfile",
     "TrustSnapshot",
+    "WebhookEvent",
 ]

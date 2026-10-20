@@ -34,6 +34,11 @@ class Merchant(Base):
     paystack_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # start of the last transaction sync that finished; the next sync fetches from here
     last_transaction_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # path segment of the merchant's paystack webhook url; identifies whose secret key verifies
+    # the signature. Not a secret (the signature is), so kept readable to show the url again
+    webhook_token: Mapped[str | None] = mapped_column(VARCHAR(64), unique=True)
+    # last verified delivery; disputes are polled only for merchants whose webhook is quiet
+    webhook_last_received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_verified: Mapped[bool] = mapped_column(BOOLEAN, default=False)
     # soft delete: deactivated merchants keep their data and can reactivate
     is_active: Mapped[bool] = mapped_column(BOOLEAN, default=True)

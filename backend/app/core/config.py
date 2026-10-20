@@ -77,6 +77,15 @@ class Settings(BaseSettings):
 
     # frontend, where oauth sign in redirects back to
     FRONTEND_URL: str = "http://localhost:3000"
+    # public base url of this api, used in the webhook url merchants paste into paystack
+    # (an ngrok url in development)
+    BACKEND_URL: str = "http://localhost:8000"
+    # paystack webhook bodies are small; anything larger is rejected unread
+    WEBHOOK_MAX_BODY_BYTES: int = 1_000_000
+    # a webhook that delivered within this window counts as working, and its merchant's
+    # disputes are not polled; paystack sends every event (each payment too), so a working
+    # one is rarely quiet this long
+    WEBHOOK_ACTIVE_HOURS: int = 24
 
     # signs the session cookie that carries the oauth state between redirects
     SESSION_SECRET_KEY: str

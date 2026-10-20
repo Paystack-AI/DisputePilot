@@ -5,12 +5,15 @@ from sqlalchemy import (
     BIGINT,
     FLOAT,
     INTEGER,
+    SMALLINT,
     UUID,
     VARCHAR,
     DateTime,
     ForeignKey,
+    Index,
     PrimaryKeyConstraint,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy import (
@@ -79,8 +82,22 @@ class Dispute(Base):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     resolution: Mapped[str | None] = mapped_column(VARCHAR(20))
     paystack_resolution: Mapped[str | None] = mapped_column(VARCHAR(50))
+    # paystack's own status, e.g. awaiting-merchant-feedback, awaiting-bank-feedback, resolved
+    paystack_status: Mapped[str | None] = mapped_column(VARCHAR(50))
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # last time a webhook or the poller updated it from paystack
+    paystack_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # the deadline warning last sent (8 or 4 hours left), so each goes out once
+    last_deadline_warning_hours: Mapped[int | None] = mapped_column(SMALLINT)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
-    __table_args__ = (PrimaryKeyConstraint("id", name="disputes_pk"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="disputes_pk"),
+        # webhooks and the poller upsert on this
+        UniqueConstraint(
+            "merchant_id", "paystack_dispute_id", name="disputes_merchant_paystack_id_uq"
+        ),
+        Index("disputes_due_at_idx", "due_at"),
+    )
