@@ -103,6 +103,7 @@ class AiResultConsumer:
         """Reads until cancelled. Redis errors restart the loop with backoff instead of
         ending the task"""
         backoff: float = 1.0
+        task: asyncio.Task | None = asyncio.current_task()
 
         while True:
             try:
@@ -114,6 +115,11 @@ class AiResultConsumer:
 
                 while True:
                     await self.process_new()
+
+                    # a cancel that lands inside a redis call can be absorbed by the client
+                    # (seen on python 3.11), which would leave this loop running forever
+                    if task is not None and task.cancelling():
+                        raise asyncio.CancelledError
 
                     # results whose handler failed stay pending; retry them periodically
                     if monotonic() - last_pending_pass >= self._retry_pending_seconds:
