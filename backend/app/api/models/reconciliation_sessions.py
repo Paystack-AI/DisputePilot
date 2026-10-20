@@ -7,6 +7,7 @@ from sqlalchemy import (
     UUID,
     DateTime,
     ForeignKey,
+    Index,
     PrimaryKeyConstraint,
     text,
 )
@@ -44,4 +45,14 @@ class ReconciliationSession(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
-    __table_args__ = (PrimaryKeyConstraint("id", name="reconciliation_sessions_pk"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="reconciliation_sessions_pk"),
+        # one open session per merchant; also serves the session list
+        Index(
+            "reconciliation_sessions_merchant_open_uq",
+            "merchant_id",
+            unique=True,
+            postgresql_where=text("status = 'in_progress'"),
+        ),
+        Index("reconciliation_sessions_merchant_created_idx", "merchant_id", "created_at"),
+    )

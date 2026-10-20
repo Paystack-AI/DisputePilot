@@ -16,6 +16,7 @@ from uuid import UUID
 from redis import Redis as SyncRedis
 from redis.asyncio import Redis
 
+from app.api.repo.streams import StreamRepository, SyncStreamRepository
 from app.core.config import get_settings
 
 SETTINGS = get_settings()
@@ -38,34 +39,24 @@ def _fields(event_type: str, data: dict) -> dict:
 async def publish_event(redis: Redis, merchant_id: UUID | str, event_type: str, data: dict) -> str:
     """Pushes an event to the merchant's open dashboards (and keeps it for replay); returns
     its id. Use from the api; celery tasks use publish_event_sync"""
-    key: str = stream_key(merchant_id)
-    async with redis.pipeline(transaction=True) as pipe:
-        pipe.xadd(
-            key,
-            _fields(event_type, data),
-            maxlen=SETTINGS.EVENT_STREAM_MAXLEN,
-            approximate=True,
-        )
-        pipe.expire(key, SETTINGS.EVENT_STREAM_TTL_SECONDS)
-        entry_id, _ = await pipe.execute()
-    return entry_id
+    return await StreamRepository(redis).add_expiring(
+        stream_key(merchant_id),
+        _fields(event_type, data),
+        SETTINGS.EVENT_STREAM_MAXLEN,
+        SETTINGS.EVENT_STREAM_TTL_SECONDS,
+    )
 
 
 def publish_event_sync(
     redis: SyncRedis, merchant_id: UUID | str, event_type: str, data: dict
 ) -> str:
     """publish_event for celery tasks, which run without an event loop"""
-    key: str = stream_key(merchant_id)
-    with redis.pipeline(transaction=True) as pipe:
-        pipe.xadd(
-            key,
-            _fields(event_type, data),
-            maxlen=SETTINGS.EVENT_STREAM_MAXLEN,
-            approximate=True,
-        )
-        pipe.expire(key, SETTINGS.EVENT_STREAM_TTL_SECONDS)
-        entry_id, _ = pipe.execute()
-    return entry_id
+    return SyncStreamRepository(redis).add_expiring(
+        stream_key(merchant_id),
+        _fields(event_type, data),
+        SETTINGS.EVENT_STREAM_MAXLEN,
+        SETTINGS.EVENT_STREAM_TTL_SECONDS,
+    )
 
 
 def sse(event: str, data: dict, event_id: str | None = None) -> str:
@@ -91,18 +82,16 @@ def _parse_id(entry_id: str) -> tuple[int, int]:
     return int(milliseconds), int(sequence)
 
 
-async def _start(redis: Redis, key: str, last_event_id: str | None) -> tuple[str, bool]:
+async def _start(repo: StreamRepository, key: str, last_event_id: str | None) -> tuple[str, bool]:
     """Where the connection starts reading, and whether the client must resync (refetch
     everything) because events it missed are no longer kept"""
-    newest = await redis.xrevrange(key, count=1)
-    newest_id: str | None = newest[0][0] if newest else None
+    newest_id: str | None = await repo.newest_id(key)
 
     # a fresh connection: only events from now on
     if not last_event_id or not STREAM_ID.match(last_event_id):
         return newest_id or "0-0", False
 
-    oldest = await redis.xrange(key, count=1)
-    oldest_id: str | None = oldest[0][0] if oldest else None
+    oldest_id: str | None = await repo.oldest_id(key)
 
     if newest_id is None:
         # the stream expired while the client was away: anything it missed is gone
@@ -129,14 +118,15 @@ async def event_stream(
     key: str = stream_key(merchant_id)
     yield f"retry: {RECONNECT_MS}\n\n"
 
-    position, resync = await _start(redis, key, last_event_id)
+    repo = StreamRepository(redis)
+    position, resync = await _start(repo, key, last_event_id)
 
     if resync:
         yield sse("resync", {})
     elif last_event_id and position == last_event_id:
         # replay everything after the client's last event, in batches
         while True:
-            entries = await redis.xrange(key, min=f"({position}", count=REPLAY_BATCH)
+            entries = await repo.range_after(key, position, REPLAY_BATCH)
             for entry_id, fields in entries:
                 yield _from_entry(entry_id, fields)
                 position = entry_id
@@ -147,8 +137,7 @@ async def event_stream(
     block_ms: int = max(int(heartbeat_seconds * 1000), 1)
 
     while True:
-        response = await redis.xread({key: position}, count=100, block=block_ms)
-        entries = response[0][1] if response else []
+        entries = await repo.read_after(key, position, 100, block_ms)
 
         for entry_id, fields in entries:
             yield _from_entry(entry_id, fields)
@@ -162,3 +151,35 @@ async def event_stream(
             if not entries:
                 # a comment line: keeps proxies from closing an idle connection
                 yield ": ping\n\n"
+
+
+# ------------------------------ open streams per merchant ------------------------------ #
+
+
+def _connections_key(merchant_id: UUID | str) -> str:
+    return f"events:connections:{merchant_id}"
+
+
+def _connections_ttl() -> int:
+    """A few heartbeats: refreshed on each, so it only lapses once no stream is alive"""
+    return max(int(SETTINGS.EVENT_HEARTBEAT_SECONDS * 3), 1)
+
+
+async def acquire_stream_slot(redis: Redis, merchant_id: UUID | str) -> bool:
+    """Counts a new stream for the merchant; False (and not counted) over the cap. The
+    count expires if a process dies without releasing it"""
+    repo = StreamRepository(redis)
+    key: str = _connections_key(merchant_id)
+    if await repo.increment(key, _connections_ttl()) > SETTINGS.EVENT_MAX_STREAMS_PER_MERCHANT:
+        await repo.decrement(key)
+        return False
+    return True
+
+
+async def refresh_stream_slot(redis: Redis, merchant_id: UUID | str):
+    """Keeps the count alive while the stream is open"""
+    await StreamRepository(redis).touch(_connections_key(merchant_id), _connections_ttl())
+
+
+async def release_stream_slot(redis: Redis, merchant_id: UUID | str):
+    await StreamRepository(redis).decrement(_connections_key(merchant_id))

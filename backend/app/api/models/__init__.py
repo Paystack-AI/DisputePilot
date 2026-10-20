@@ -4,6 +4,7 @@ from app.api.models.dispute_evidence_files import DisputeEvidenceFile
 from app.api.models.disputes import Dispute
 from app.api.models.files import StoredFile
 from app.api.models.fulfillments import Fulfillment
+from app.api.models.match_suggestions import MatchSuggestion
 from app.api.models.merchant_onboarding import MerchantOnboarding
 from app.api.models.merchant_settings import MerchantSettings
 from app.api.models.merchants import Merchant
@@ -26,6 +27,7 @@ __all__ = [
     "StoredFile",
     "NotificationLog",
     "ReconciliationSession",
+    "MatchSuggestion",
     "MerchantSettings",
     "MerchantOnboarding",
     "TrustProfile",

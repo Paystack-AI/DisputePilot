@@ -77,6 +77,18 @@ class ReconciliationSessionStatus(enum.StrEnum):
     COMPLETED = "completed"
 
 
+class MatchSuggestionStatus(enum.StrEnum):
+    PENDING = "pending"  # waiting for the merchant to accept or reject
+    REJECTED = "rejected"  # kept so the matcher never suggests the pair again
+
+
+class OrderResolution(enum.StrEnum):
+    """How the merchant settled an order no paystack payment matched"""
+
+    CASH_PAYMENT = "cash_payment"  # paid outside paystack: the order is paid
+    PAYMENT_FAILED = "payment_failed"  # never paid: the order is cancelled
+
+
 class TrustState(enum.StrEnum):
     VERIFIED = "verified"
     BUILDING = "building"

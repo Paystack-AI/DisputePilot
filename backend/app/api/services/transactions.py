@@ -16,13 +16,16 @@ from app.api.models.merchant_onboarding import MerchantOnboarding
 from app.api.models.merchants import Merchant
 from app.api.models.orders import Order
 from app.api.models.transactions import Transaction
+from app.api.repo.matching import MatchingRepository
 from app.api.repo.merchant_onboarding import MerchantOnboardingRepository
 from app.api.repo.orders import OrderRepository
+from app.api.repo.readiness import ReadinessRepository
 from app.api.repo.transactions import TransactionRepository
 from app.api.repo.uow import UnitOfWorkRepository
 from app.api.schemas.customers import CustomerRef
 from app.api.schemas.fulfillments import FulfillmentSummary
 from app.api.schemas.pagination import PageMeta
+from app.api.schemas.readiness import Readiness, ReadinessDetail
 from app.api.schemas.transactions import (
     TransactionDetail,
     TransactionDispute,
@@ -34,6 +37,8 @@ from app.api.schemas.transactions import (
     TransactionResponse,
     TransactionSyncResponse,
 )
+from app.api.services.readiness import readiness_for
+from app.api.services.readiness import summary as readiness_summary
 from app.api.services.transaction_sync import enqueue_transaction_sync
 from app.core.exceptions import (
     AppException,
@@ -69,13 +74,17 @@ def _transaction_fields(transaction: Transaction) -> dict[str, Any]:
 
 
 def transaction_response(
-    transaction: Transaction, customer: Customer | None, order: Order | None
+    transaction: Transaction,
+    customer: Customer | None,
+    order: Order | None,
+    readiness: Readiness | None = None,
 ) -> TransactionResponse:
     return TransactionResponse.model_validate(
         {
             **_transaction_fields(transaction),
             "customer": CustomerRef.model_validate(customer) if customer else None,
             "order": TransactionOrderRef.model_validate(order) if order else None,
+            "readiness": readiness,
         }
     )
 
@@ -124,9 +133,14 @@ class TransactionService:
         await self._uow_transactions(uow)
 
         rows, total = await self._transaction_repo.list_transactions(curr_merchant.id, query)
+        scores: dict[UUID, ReadinessDetail] = await readiness_for(
+            self._uow.repo(ReadinessRepository), [row[0] for row in rows]
+        )
 
         transactions: list[TransactionResponse] = [
-            transaction_response(transaction, customer, order)
+            transaction_response(
+                transaction, customer, order, readiness_summary(scores.get(transaction.id))
+            )
             for transaction, customer, order in rows
         ]
         return transactions, PageMeta.build(query, total)
@@ -150,6 +164,9 @@ class TransactionService:
                 "metadata": transaction.metadata_,
                 "fulfillments": [FulfillmentSummary.model_validate(f) for f in fulfillments],
                 "dispute": TransactionDispute.model_validate(dispute) if dispute else None,
+                "readiness": (
+                    await readiness_for(self._uow.repo(ReadinessRepository), [transaction])
+                ).get(transaction.id),
             }
         )
 
@@ -208,6 +225,7 @@ class TransactionService:
             await self._uow.rollback()
             raise
 
+        await self._uow.repo(MatchingRepository).drop_stale_suggestions(merchant_id)
         await self._save(merchant_id, reference, "matching")
 
         sentry_logger.info(
@@ -217,7 +235,17 @@ class TransactionService:
             order_id=str(order.id),
         )
 
-        return transaction_response(transaction, customer or order_customer, order)
+        return await self._scored_response(transaction, customer or order_customer, order)
+
+    async def _scored_response(
+        self, transaction: Transaction, customer: Customer | None, order: Order | None
+    ) -> TransactionResponse:
+        scores: dict[UUID, ReadinessDetail] = await readiness_for(
+            self._uow.repo(ReadinessRepository), [transaction]
+        )
+        return transaction_response(
+            transaction, customer, order, readiness_summary(scores.get(transaction.id))
+        )
 
     async def flag_transaction(
         self,
@@ -239,6 +267,7 @@ class TransactionService:
         transaction.reconciliation_status = ReconciliationStatus.FLAGGED
         transaction.flag_reason = payload.reason
 
+        await self._uow.repo(MatchingRepository).drop_stale_suggestions(merchant_id)
         await self._save(merchant_id, reference, "flagging")
 
         sentry_logger.info(
@@ -281,7 +310,7 @@ class TransactionService:
             reference=reference,
         )
 
-        return transaction_response(transaction, customer, order)
+        return await self._scored_response(transaction, customer, order)
 
     async def sync_transactions(
         self, curr_merchant: Merchant, uow: UnitOfWorkRepository

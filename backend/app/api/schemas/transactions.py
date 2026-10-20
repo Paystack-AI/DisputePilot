@@ -17,6 +17,7 @@ from app.api.schemas.auth import AuthBase
 from app.api.schemas.customers import CustomerRef
 from app.api.schemas.fulfillments import FulfillmentSummary
 from app.api.schemas.pagination import PageParams
+from app.api.schemas.readiness import Readiness, ReadinessDetail
 
 TransactionSort = Literal["created_at", "-created_at", "paid_at", "-paid_at", "amount", "-amount"]
 
@@ -94,6 +95,8 @@ class TransactionResponse(TransactionSummary):
     flag_reason: str | None
     flagged_at: datetime | None
     synced_at: datetime
+    # dispute readiness; null unless the payment is matched to an order
+    readiness: Readiness | None = None
 
 
 class TransactionOrder(TransactionOrderRef):
@@ -129,6 +132,8 @@ class TransactionDetail(TransactionResponse):
     metadata: dict | None
     fulfillments: list[FulfillmentSummary]
     dispute: TransactionDispute | None
+    # with the checklist of what counts towards it
+    readiness: ReadinessDetail | None = None
 
 
 class TransactionMatch(AuthBase):
