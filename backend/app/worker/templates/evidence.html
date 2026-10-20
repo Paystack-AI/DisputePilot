@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dispute response {{ doc.header.dispute_reference }}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 16mm 20mm;
+    @bottom-left { content: "{{ doc.header.business_name | css_string }} · Dispute {{ doc.header.dispute_reference | css_string }}"; font-size: 8pt; color: #6b7280; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #6b7280; }
+  }
+  body { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 10pt; color: #111827; line-height: 1.45; }
+  header { border-bottom: 2px solid #111827; padding-bottom: 8pt; margin-bottom: 14pt; }
+  header h1 { font-size: 16pt; margin: 0 0 2pt; }
+  header .subtitle { color: #4b5563; margin: 0; }
+  .meta { display: flex; flex-wrap: wrap; gap: 4pt 18pt; margin-top: 8pt; font-size: 9pt; }
+  .meta span b { color: #374151; }
+  section { margin-bottom: 14pt; page-break-inside: avoid; }
+  section.flow { page-break-inside: auto; }
+  h2 { font-size: 11pt; text-transform: uppercase; letter-spacing: 0.04em; color: #374151; border-bottom: 1px solid #d1d5db; padding-bottom: 3pt; margin: 0 0 6pt; }
+  table.facts { width: 100%; border-collapse: collapse; }
+  table.facts th { text-align: left; width: 34%; font-weight: normal; color: #4b5563; padding: 3pt 8pt 3pt 0; vertical-align: top; }
+  table.facts td { padding: 3pt 0; vertical-align: top; }
+  .narrative p { margin: 0 0 7pt; text-align: justify; }
+  .fulfillment + .fulfillment { margin-top: 8pt; padding-top: 8pt; border-top: 1px dashed #d1d5db; }
+  figure { margin: 0 0 10pt; page-break-inside: avoid; }
+  figure img { max-width: 100%; max-height: 120mm; border: 1px solid #e5e7eb; }
+  figcaption { font-size: 9pt; color: #4b5563; margin-top: 2pt; }
+  .muted { color: #6b7280; }
+  .conclusion { border-left: 3px solid #111827; padding-left: 8pt; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>{{ doc.header.business_name }}</h1>
+  <p class="subtitle">Response to dispute {{ doc.header.dispute_reference }}</p>
+  <div class="meta">
+    <span><b>Document date:</b> {{ doc.header.document_date | date }}</span>
+    <span><b>Transaction reference:</b> {{ doc.header.transaction_reference }}</span>
+    {% if doc.header.paystack_integration_id %}<span><b>Paystack integration:</b> {{ doc.header.paystack_integration_id }}</span>{% endif %}
+  </div>
+</header>
+
+<section>
+  <h2>Transaction receipt</h2>
+  {% set r = doc.transaction_receipt %}
+  <table class="facts">
+    <tr><th>Date paid</th><td>{{ r.paid_at | datetime }}</td></tr>
+    <tr><th>Amount</th><td>{{ r.amount | money(r.currency) }}</td></tr>
+    <tr><th>Payment channel</th><td>{{ r.channel | humanize }}</td></tr>
+    <tr><th>Paystack reference</th><td>{{ r.reference }}</td></tr>
+    {% if r.customer_name %}<tr><th>Customer name</th><td>{{ r.customer_name }}</td></tr>{% endif %}
+    {% if r.customer_email %}<tr><th>Customer email</th><td>{{ r.customer_email }}</td></tr>{% endif %}
+  </table>
+</section>
+
+{% if doc.order_details %}
+<section>
+  <h2>Order details</h2>
+  {% set o = doc.order_details %}
+  <table class="facts">
+    {% if o.order_number %}<tr><th>Order number</th><td>{{ o.order_number }}</td></tr>{% endif %}
+    {% if o.description %}<tr><th>Goods or services</th><td>{{ o.description }}</td></tr>{% endif %}
+    <tr><th>Order date</th><td>{{ o.created_at | datetime }}</td></tr>
+    <tr><th>Order amount</th><td>{{ o.amount | money(o.currency) }}</td></tr>
+  </table>
+</section>
+{% endif %}
+
+{% if doc.fulfillment_evidence %}
+<section>
+  <h2>Fulfillment evidence</h2>
+  {% for f in doc.fulfillment_evidence %}
+  <div class="fulfillment">
+    <table class="facts">
+      <tr><th>Fulfillment</th><td>{{ f.type | humanize }}</td></tr>
+      <tr><th>Date</th><td>{{ f.delivery_date | datetime }}</td></tr>
+      {% if f.tracking_number %}<tr><th>Tracking number</th><td>{{ f.tracking_number }}</td></tr>{% endif %}
+      {% if f.recipient_name %}<tr><th>Received by</th><td>{{ f.recipient_name }}</td></tr>{% endif %}
+      {% if f.delivery_address %}<tr><th>Delivery address</th><td>{{ f.delivery_address }}</td></tr>{% endif %}
+      {% if f.notes %}<tr><th>Merchant notes</th><td>{{ f.notes }}</td></tr>{% endif %}
+    </table>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if doc.narrative %}
+<section class="flow narrative">
+  <h2>Statement</h2>
+  {% for paragraph in doc.narrative | paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+</section>
+{% endif %}
+
+{% if documents %}
+<section class="flow">
+  <h2>Supporting documents</h2>
+  {% for item in documents %}
+  <figure>
+    <img src="{{ item.src }}" alt="{{ item.label }}">
+    <figcaption>Exhibit {{ loop.index }}: {{ item.label }}</figcaption>
+  </figure>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if doc.customer_history %}
+<section>
+  <h2>Customer history</h2>
+  {% set h = doc.customer_history %}
+  <table class="facts">
+    <tr><th>Successful payments</th><td>{{ h.payment_count }}</td></tr>
+    {% if h.first_payment_at %}<tr><th>Customer since</th><td>{{ h.first_payment_at | date }}</td></tr>{% endif %}
+    <tr><th>Earlier disputes</th><td>{{ h.prior_disputes }}</td></tr>
+  </table>
+</section>
+{% endif %}
+
+{% if doc.conclusion %}
+<section>
+  <h2>Conclusion</h2>
+  <div class="conclusion">
+    {% for paragraph in doc.conclusion | paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+  </div>
+</section>
+{% endif %}
+
+</body>
+</html>

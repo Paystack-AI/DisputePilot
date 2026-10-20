@@ -10,6 +10,7 @@ from app.api.clients.minio import create_minio_storage
 from app.api.clients.paystack import create_async_http_client
 from app.api.routers import router
 from app.api.services.ai_streams import AI_RESULT_HANDLERS, AiResultConsumer, stop_task
+from app.api.services.dispute_ai import run_timeout_sweeps  # registers the ai handlers
 from app.core.config import get_settings
 from app.core.exception_handlers import ExceptionHandler
 from app.core.exceptions import StorageUpstreamError
@@ -44,13 +45,19 @@ async def lifespan(app: FastAPI):
 
     # one loop reading ai results (ai -> backend); jobs for the ai are added on demand
     ai_result_task: asyncio.Task | None = None
+    # evidence steps with no result in time fall back to the templates
+    evidence_sweep_task: asyncio.Task | None = None
     if SETTINGS.AI_RESULT_CONSUMER_ENABLED:
         consumer = AiResultConsumer(app.state.redis, AI_RESULT_HANDLERS)
         ai_result_task = asyncio.create_task(consumer.run(), name="ai-result-consumer")
+        evidence_sweep_task = asyncio.create_task(
+            run_timeout_sweeps(), name="evidence-timeout-sweep"
+        )
 
     yield
 
     await stop_task(ai_result_task)
+    await stop_task(evidence_sweep_task)
     await app.state.paystack_http.aclose()
     await app.state.redis.aclose()
 

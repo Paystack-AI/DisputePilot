@@ -1,7 +1,7 @@
 from typing import Generic, TypeVar
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, SerializeAsAny
 
 from app.api.schemas.pagination import PageMeta
 
@@ -14,7 +14,8 @@ class SuccessResponse(BaseModel, Generic[T]):
 
 class ListSuccessResponse(BaseModel, Generic[T]):
     data: list[T]
-    meta: PageMeta
+    # a subclass's extra fields (e.g. server_time) are kept
+    meta: SerializeAsAny[PageMeta]
 
 
 class Error(BaseModel):

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dispute acceptance {{ dispute_reference }}</title>
+<style>
+  @page { size: A4; margin: 22mm 18mm; }
+  body { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 11pt; color: #111827; line-height: 1.5; }
+  h1 { font-size: 15pt; margin: 0 0 4pt; }
+  .muted { color: #4b5563; }
+  table { border-collapse: collapse; margin: 14pt 0; }
+  th { text-align: left; font-weight: normal; color: #4b5563; padding: 3pt 14pt 3pt 0; }
+</style>
+</head>
+<body>
+  <h1>{{ business_name }}</h1>
+  <p class="muted">Acceptance of dispute {{ dispute_reference }}, {{ document_date | date }}</p>
+  <table>
+    <tr><th>Transaction reference</th><td>{{ transaction_reference }}</td></tr>
+    <tr><th>Refund amount</th><td>{{ amount | money(currency) }}</td></tr>
+  </table>
+  <p>{{ message }}</p>
+</body>
+</html>

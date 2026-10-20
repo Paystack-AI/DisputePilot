@@ -144,6 +144,20 @@ class MinioStorage:
     async def delete(self, bucket_name: str, object_name: str):
         await self._run(self.client.remove_object, bucket_name, object_name)
 
+    # blocking versions for celery tasks, which run without an event loop
+
+    def upload_bytes_sync(
+        self,
+        bucket_name: str,
+        object_name: str,
+        data: bytes,
+        content_type: str = DEFAULT_CONTENT_TYPE,
+    ):
+        self._upload(bucket_name, object_name, BytesIO(data), len(data), content_type)
+
+    def retrieve_sync(self, bucket_name: str, object_name: str) -> bytes:
+        return self._retrieve(bucket_name, object_name)
+
     async def ensure_bucket(self, bucket_name: str):
         """Creates the bucket when missing; uploads also do this on first use"""
         await self._run(self._ensure_bucket, bucket_name)

@@ -9,8 +9,11 @@ from app.core.exceptions import (
     CredentialError,
     CustomerEmailLockedError,
     CustomerExistsError,
+    DisputeActionNotAllowedError,
     EmailNotVerifiedError,
+    EvidenceVersionConflictError,
     FileAlreadyAttachedError,
+    FraudEvidenceIncompleteError,
     InvalidOAuthCodeError,
     InvalidOtpError,
     MatchConflictError,
@@ -224,6 +227,23 @@ class ExceptionHandler:
                     "message": "Live updates are open in {limit} places already. Close one "
                     "and try again."
                 },
+            ),
+        )
+        self.app.add_exception_handler(
+            DisputeActionNotAllowedError,
+            exception_handler(409, {"message": "This dispute can not {action} right now."}),
+        )
+        self.app.add_exception_handler(
+            EvidenceVersionConflictError,
+            exception_handler(
+                409, {"message": "The evidence changed since you opened it. Reload and try again."}
+            ),
+        )
+        self.app.add_exception_handler(
+            FraudEvidenceIncompleteError,
+            exception_handler(
+                422,
+                {"message": "Paystack needs more customer details to answer a fraud claim."},
             ),
         )
         self.app.add_exception_handler(

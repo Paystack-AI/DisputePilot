@@ -237,6 +237,31 @@ class TooManyStreamsError(AppException):
         self.limit = limit
 
 
+class DisputeActionNotAllowedError(AppException):
+    """The dispute is not in a state that allows this action (see allowed_actions)."""
+
+    def __init__(self, action: str, reason: str):
+        super().__init__("DISPUTE_ACTION_NOT_ALLOWED")
+        self.action = action
+        self.details = {"action": action, "reason": reason}
+
+
+class EvidenceVersionConflictError(AppException):
+    """The evidence changed since the version the client sent (another tab, or the ai)."""
+
+    def __init__(self, current_version: int):
+        super().__init__("EVIDENCE_VERSION_CONFLICT")
+        self.details = {"current_version": str(current_version)}
+
+
+class FraudEvidenceIncompleteError(AppException):
+    """A fraud claim needs customer details paystack requires that we do not have."""
+
+    def __init__(self, missing: list[str]):
+        super().__init__("FRAUD_EVIDENCE_INCOMPLETE")
+        self.details = {"missing": ", ".join(missing)}
+
+
 class WebhookSignatureError(AppException):
     """The webhook body is not signed with the merchant's paystack secret key."""
 

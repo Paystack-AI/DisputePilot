@@ -25,6 +25,8 @@ def email_merchant(
     html: str,
     dispute_id: UUID | None = None,
     metadata: dict | None = None,
+    attachment_object: str | None = None,
+    attachment_name: str | None = None,
 ) -> UUID | None:
     """Records and queues the email when the merchant has email notifications on. Commits;
     never raises, the event that caused it is already saved"""
@@ -53,6 +55,8 @@ def email_merchant(
                 "subject": subject,
                 "html": html,
                 "notification_id": str(notification.id),
+                "attachment_object": attachment_object,
+                "attachment_name": attachment_name,
             },
             priority=DISPUTE_EMAIL_PRIORITY,
         )

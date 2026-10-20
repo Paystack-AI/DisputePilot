@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routers import (
     auth,
     customers,
+    disputes,
     events,
     fulfillments,
     onboarding,
@@ -31,3 +32,4 @@ router.include_router(fulfillments.router, tags=["Fulfillments"])
 router.include_router(reconciliation.router, tags=["Reconciliation"])
 router.include_router(events.router, tags=["Events"])
 router.include_router(webhooks.router, tags=["Webhooks"])
+router.include_router(disputes.router, tags=["Disputes"])

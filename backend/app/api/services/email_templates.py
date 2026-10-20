@@ -118,3 +118,14 @@ def dispute_resolved_email(reference: str, outcome: str) -> tuple[str, str]:
         f"{lines.get(outcome, 'has been resolved.')}</p>"
     )
     return f"DisputePilot: Dispute on {reference} resolved", html
+
+
+def dispute_submitted_email(reference: str, due_at: datetime) -> tuple[str, str]:
+    """The response went to paystack; the evidence pdf is attached"""
+    html: str = (
+        f"<p>Your response to the dispute on payment <strong>{escape(reference)}</strong> "
+        "was submitted to Paystack with the attached evidence.</p>"
+        f"<p>It went in before the deadline of {due_at:%d %b %Y, %H:%M} UTC. The bank now "
+        "reviews it; you will hear from us as soon as it is resolved.</p>"
+    )
+    return f"DisputePilot: Response submitted for {reference}", html
