@@ -18,9 +18,10 @@ from app.api.models.merchants import Merchant
 from app.api.repo.disputes import SyncDisputeRepository
 from app.worker.services.transaction_sync import TransactionSync, _parse_datetime
 
-# paystack's resolution -> ours, once the dispute is resolved
+# paystack's resolution values (the webhook docs add auto-accepted to the api's two)
 DECLINED: str = "declined"  # the merchant's evidence stood: no refund
-MERCHANT_ACCEPTED: str = "merchant-accepted"
+MERCHANT_ACCEPTED: str = "merchant-accepted"  # the merchant conceded: refunded
+AUTO_ACCEPTED: str = "auto-accepted"  # nobody responded before dueAt: refunded
 RESOLVED: str = "resolved"
 # paystack gives the merchant about 16 hours when dueAt is missing
 DEFAULT_RESPONSE_HOURS: int = 16
@@ -41,32 +42,43 @@ class DisputeIntake:
     reference: str
 
 
-def _outcome(data: dict, dispute: Dispute | None) -> DisputeStatus | None:
+def _outcome(data: dict) -> DisputeStatus | None:
     """won, lost or auto_accepted for a resolved dispute; None while it is open"""
-    if data.get("status") != RESOLVED and not data.get("resolution"):
-        return None
     resolution: str | None = data.get("resolution")
+    if data.get("status") != RESOLVED and not resolution:
+        return None
     if resolution == DECLINED:
         return DisputeStatus.WON
-    if resolution == MERCHANT_ACCEPTED:
-        # accepted without us ever submitting: the deadline passed (or the merchant
-        # accepted on paystack directly)
-        submitted: bool = bool(dispute and dispute.submitted_at)
-        return DisputeStatus.LOST if submitted else DisputeStatus.AUTO_ACCEPTED
+    if resolution == AUTO_ACCEPTED:
+        return DisputeStatus.AUTO_ACCEPTED
+    # merchant-accepted, or a resolution paystack has not documented
     return DisputeStatus.LOST
 
 
 def _reason(data: dict) -> str | None:
-    """What the customer said: the note, else the first message"""
-    if isinstance(data.get("note"), str) and data["note"].strip():
-        return data["note"].strip()
+    """The bank's reason: messages[0].body (paystack's messages are {sender, body,
+    createdAt}), else the note"""
     messages = data.get("messages")
     if isinstance(messages, list):
         for message in messages:
-            body = message.get("message") if isinstance(message, dict) else None
+            body = message.get("body") if isinstance(message, dict) else None
             if isinstance(body, str) and body.strip():
                 return body.strip()
+    if isinstance(data.get("note"), str) and data["note"].strip():
+        return data["note"].strip()
     return None
+
+
+def _with_customer(transaction: dict, data: dict) -> dict:
+    """The dispute's embedded transaction carries an almost empty customer (only
+    international_format_phone); the dispute's own customer has the email and name"""
+    customer = data.get("customer")
+    embedded_customer = transaction.get("customer")
+    if not isinstance(customer, dict) or (
+        isinstance(embedded_customer, dict) and embedded_customer.get("email")
+    ):
+        return transaction
+    return {**transaction, "customer": customer}
 
 
 class DisputeIntakeService:
@@ -94,14 +106,14 @@ class DisputeIntakeService:
 
         sync = TransactionSync(self._session, self._client, self._merchant)
         if embedded.get("reference") and embedded.get("status"):
-            sync.store([embedded])
+            sync.store([_with_customer(embedded, data)])
             transaction_id = self._repo.transaction_id(self._merchant.id, paystack_id)
 
         if not transaction_id and self._client:
             body: dict = self._client.fetch_transaction(paystack_id)
             fetched = body.get("data")
             if isinstance(fetched, dict):
-                sync.store([fetched])
+                sync.store([_with_customer(fetched, data)])
                 transaction_id = self._repo.transaction_id(self._merchant.id, paystack_id)
                 embedded = fetched
 
@@ -155,7 +167,8 @@ class DisputeIntakeService:
                 "currency": currency,
                 "reason_raw": reason,
                 "status": DisputeStatus.PENDING,
-                "created_at": _parse_datetime(data.get("createdAt")) or now,
+                "created_at": _parse_datetime(data.get("createdAt") or data.get("created_at"))
+                or now,
                 **paystack_fields,
                 "due_at": due_at or now + timedelta(hours=DEFAULT_RESPONSE_HOURS),
             }
@@ -170,7 +183,7 @@ class DisputeIntakeService:
             dispute.reason_raw = reason
 
         resolved_now: bool = False
-        outcome: DisputeStatus | None = _outcome(data, dispute)
+        outcome: DisputeStatus | None = _outcome(data)
         if outcome and dispute.status != outcome:
             dispute.status = outcome
             dispute.resolution = outcome.value
