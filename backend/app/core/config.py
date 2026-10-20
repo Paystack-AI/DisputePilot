@@ -28,6 +28,24 @@ class Settings(BaseSettings):
 
     # redis
     REDIS_URL: str
+    # each open event stream (GET /events) holds one connection while it waits
+    REDIS_MAX_CONNECTIONS: int = 200
+
+    # cors: exact origins allowed to call the api from a browser, comma separated (the
+    # frontend's url); credentials are allowed, so "*" is not
+    CORS_ALLOWED_ORIGINS: str = "http://localhost:3000"
+
+    # access token cookie, set at sign in for clients calling the api directly (an
+    # EventSource can not send an Authorization header); the header is checked first
+    ACCESS_TOKEN_COOKIE_NAME: str = "access_token"
+
+    # server-sent events: one redis stream per merchant (events:merchant:{id})
+    EVENT_STREAM_MAXLEN: int = 500  # events kept per merchant for replay (approximate)
+    EVENT_STREAM_TTL_SECONDS: int = 24 * 60 * 60  # a merchant's stream expires when idle
+    # how often an idle stream sends a heartbeat and rechecks the session
+    EVENT_HEARTBEAT_SECONDS: int = 20
+    # open streams allowed per merchant (tabs, devices)
+    EVENT_MAX_STREAMS_PER_MERCHANT: int = 5
 
     # rabbitmq
     BROKER_URL: str

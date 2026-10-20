@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 import sentry_sdk.logger as sentry_logger
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.clients.minio import create_minio_storage
@@ -74,6 +75,19 @@ app.add_middleware(
     same_site="lax",
     secret_key=SETTINGS.SESSION_SECRET_KEY,
     https_only=SETTINGS.ENVIRONMENT == "production",
+)
+
+# added last so it runs first: preflights are answered before anything else sees them
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        origin.strip() for origin in SETTINGS.CORS_ALLOWED_ORIGINS.split(",") if origin.strip()
+    ],
+    # the access token cookie on direct GET /events calls
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "Last-Event-ID"],
+    expose_headers=["Retry-After", "X-Request-ID"],
 )
 
 app_exception_handler = ExceptionHandler(app)
