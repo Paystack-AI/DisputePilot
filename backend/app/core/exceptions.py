@@ -229,6 +229,14 @@ class FileAlreadyAttachedError(AppException):
         self.details = {"file_id": file_id}
 
 
+class TooManyStreamsError(AppException):
+    """The merchant already has the maximum number of open event streams."""
+
+    def __init__(self, limit: int):
+        super().__init__("TOO_MANY_STREAMS")
+        self.limit = limit
+
+
 class RateLimitExceeded(AppException):
     def __init__(self, retry_after: int):
         super().__init__("RATE_LIMITED")

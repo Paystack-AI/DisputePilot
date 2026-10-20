@@ -3,7 +3,7 @@ from urllib.parse import urlencode
 import httpx
 import sentry_sdk.logger as sentry_logger
 from authlib.integrations.starlette_client import OAuthError
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Response
 from fastapi.responses import RedirectResponse
 
 from app.api.models.enums import GoogleSignInError, GoogleSignInIntent
@@ -46,6 +46,24 @@ def _token(access_token: str, refresh_token: str) -> Token:
         refresh_token=refresh_token,
         expires_in=SETTINGS.ACCESS_TOKEN_EXPIRE_TIME * 60,
     )
+
+
+def _token_response(
+    response: Response, access_token: str, refresh_token: str
+) -> SuccessResponse[Token]:
+    """Tokens in the body (the frontend proxy keeps them in its own cookies) and the access
+    token in an httponly cookie for clients that call the api directly, e.g. an EventSource
+    on GET /events, which can not send an Authorization header"""
+    response.set_cookie(
+        key=SETTINGS.ACCESS_TOKEN_COOKIE_NAME,
+        value=access_token,
+        max_age=SETTINGS.ACCESS_TOKEN_EXPIRE_TIME * 60,
+        httponly=True,
+        secure=SETTINGS.ENVIRONMENT == "production",
+        samesite="lax",
+        path="/",
+    )
+    return SuccessResponse(data=_token(access_token, refresh_token))
 
 
 def _otp_sent(email: str) -> OtpSentResponse:
@@ -121,13 +139,14 @@ async def resend_verification_otp(
     dependencies=[write_limiter],
 )
 async def login(
+    response: Response,
     security: SecurityDep,
     email_login: EmailLogin,
     auth_service: AuthServiceDep,
     merchant_service: MerchantServiceDep,
 ):
     access_token, refresh_token = await auth_service.login(email_login, merchant_service, security)
-    return SuccessResponse(data=_token(access_token, refresh_token))
+    return _token_response(response, access_token, refresh_token)
 
 
 @router.post(
@@ -141,6 +160,7 @@ async def login(
     dependencies=[write_limiter],
 )
 async def create_new_token(
+    response: Response,
     security: SecurityDep,
     refresh_payload: RefreshToken,
     auth_service: AuthServiceDep,
@@ -149,7 +169,7 @@ async def create_new_token(
     access_token, refresh_token = await auth_service.create_auth_tokens(
         refresh_payload.refresh_token, merchant_service, security
     )
-    return SuccessResponse(data=_token(access_token, refresh_token))
+    return _token_response(response, access_token, refresh_token)
 
 
 @router.get(
@@ -203,10 +223,12 @@ async def update_current_merchant(
     dependencies=[write_limiter],
 )
 async def log_out(
+    response: Response,
     auth_service: AuthServiceDep,
     access_token_claims: AccessTokenClaims,
 ):
     await auth_service.logout(access_token_claims)
+    response.delete_cookie(SETTINGS.ACCESS_TOKEN_COOKIE_NAME, path="/")
 
 
 @router.post(
@@ -307,6 +329,7 @@ async def request_reactivation(
     dependencies=[write_limiter],
 )
 async def reactivate_account(
+    response: Response,
     security: SecurityDep,
     reactivate_payload: Reactivate,
     auth_service: AuthServiceDep,
@@ -315,7 +338,7 @@ async def reactivate_account(
     access_token, refresh_token = await auth_service.reactivate_account(
         reactivate_payload, merchant_service, security
     )
-    return SuccessResponse(data=_token(access_token, refresh_token))
+    return _token_response(response, access_token, refresh_token)
 
 
 @router.get(
@@ -389,6 +412,7 @@ async def google_callback(
     dependencies=[write_limiter],
 )
 async def exchange_google_code(
+    response: Response,
     security: SecurityDep,
     exchange_payload: GoogleSignInExchange,
     auth_service: AuthServiceDep,
@@ -397,7 +421,7 @@ async def exchange_google_code(
     access_token, refresh_token = await auth_service.exchange_google_code(
         exchange_payload, merchant_service, security
     )
-    return SuccessResponse(data=_token(access_token, refresh_token))
+    return _token_response(response, access_token, refresh_token)
 
 
 @router.post(
@@ -411,6 +435,7 @@ async def exchange_google_code(
     dependencies=[write_limiter],
 )
 async def complete_google_sign_up(
+    response: Response,
     uow: UnitOfWorkRepo,
     security: SecurityDep,
     sign_up_payload: GoogleSignUpComplete,
@@ -419,4 +444,4 @@ async def complete_google_sign_up(
     access_token, refresh_token = await auth_service.complete_google_sign_up(
         sign_up_payload, security, uow
     )
-    return SuccessResponse(data=_token(access_token, refresh_token))
+    return _token_response(response, access_token, refresh_token)

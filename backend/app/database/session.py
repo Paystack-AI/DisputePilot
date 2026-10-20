@@ -49,7 +49,7 @@ sync_session = sessionmaker(bind=sync_engine, autocommit=False, autoflush=False)
 redis_pool = ConnectionPool.from_url(
     SETTINGS.REDIS_URL,
     decode_responses=True,
-    max_connections=50,
+    max_connections=SETTINGS.REDIS_MAX_CONNECTIONS,
     retry=Retry(ExponentialBackoff(cap=1.0, base=0.1), retries=5),
     retry_on_error=[ConnectionError, TimeoutError],
     retry_on_timeout=True,

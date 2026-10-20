@@ -32,6 +32,7 @@ from app.core.exceptions import (
     StorageUpstreamError,
     SyncInProgressError,
     TokenExpiredError,
+    TooManyStreamsError,
     UnsupportedFileTypeError,
     exception_handler,
 )
@@ -213,6 +214,16 @@ class ExceptionHandler:
         self.app.add_exception_handler(
             FileAlreadyAttachedError,
             exception_handler(409, {"message": "This file is already attached to another record."}),
+        )
+        self.app.add_exception_handler(
+            TooManyStreamsError,
+            exception_handler(
+                429,
+                {
+                    "message": "Live updates are open in {limit} places already. Close one "
+                    "and try again."
+                },
+            ),
         )
         self.app.add_exception_handler(
             RateLimitExceeded,
