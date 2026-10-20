@@ -60,6 +60,8 @@ async def add_transaction(
     paid_at: datetime | None = None,
     created_at: datetime | None = None,
     customer_email: str | None = None,
+    reference: str | None = None,
+    metadata: dict | None = None,
 ) -> UUID:
     paystack_id: int = next(_ids)
 
@@ -67,7 +69,7 @@ async def add_transaction(
         transaction = Transaction(
             merchant_id=merchant,
             paystack_transaction_id=paystack_id,
-            paystack_reference=f"T{paystack_id}",
+            paystack_reference=reference or f"T{paystack_id}",
             customer_id=customer_id,
             order_id=order_id,
             amount=amount,
@@ -78,6 +80,7 @@ async def add_transaction(
             paid_at=paid_at or datetime.now(UTC),
             paystack_created_at=created_at or paid_at or datetime.now(UTC),
             customer_email=customer_email,
+            metadata_=metadata,
         )
         session.add(transaction)
         await session.commit()

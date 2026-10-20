@@ -11,7 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.models.merchants import Merchant
 from app.api.services.auth import AuthService
-from app.api.services.events import event_stream
+from app.api.services.events import (
+    acquire_stream_slot,
+    event_stream,
+    refresh_stream_slot,
+    release_stream_slot,
+)
 from app.core.config import get_settings
 from app.core.exceptions import AppException, AuthenticationError, TooManyStreamsError
 from app.core.security import Security
@@ -25,15 +30,6 @@ router = APIRouter()
 # released as soon as the handler returns, before streaming starts, so a long-lived stream
 # never holds a database connection
 ShortDBSession = Annotated[AsyncSession, Depends(get_session, scope="function")]
-
-
-def _connections_key(merchant_id: str) -> str:
-    return f"events:connections:{merchant_id}"
-
-
-def _connections_ttl() -> int:
-    """A few heartbeats: refreshed on each, so it only lapses once no stream is alive"""
-    return max(int(SETTINGS.EVENT_HEARTBEAT_SECONDS * 3), 1)
 
 
 async def _authenticate(
@@ -92,18 +88,13 @@ async def stream_events(
     claims: dict = await _authenticate(request, credentials, security, auth_service, session)
     merchant_id: str = claims["sub"]
 
-    # cap open streams per merchant; the count expires if a process dies without releasing
-    connections_key: str = _connections_key(merchant_id)
-    open_streams: int = await redis.incr(connections_key)
-    await redis.expire(connections_key, _connections_ttl())
-    if open_streams > SETTINGS.EVENT_MAX_STREAMS_PER_MERCHANT:
-        await redis.decr(connections_key)
+    if not await acquire_stream_slot(redis, merchant_id):
         raise TooManyStreamsError(SETTINGS.EVENT_MAX_STREAMS_PER_MERCHANT)
 
     async def session_valid() -> bool:
         """The token has not expired and its session was not ended (logout, password
         change, deactivation); also keeps the connection count alive"""
-        await redis.expire(connections_key, _connections_ttl())
+        await refresh_stream_slot(redis, merchant_id)
         if datetime.now(UTC).timestamp() >= claims["exp"]:
             return False
         try:
@@ -124,7 +115,7 @@ async def stream_events(
                 yield chunk
         finally:
             # the client went away, the session ended or the server is stopping
-            await redis.decr(connections_key)
+            await release_stream_slot(redis, merchant_id)
             sentry_logger.info(
                 "Event stream closed for merchant {merchant_id}", merchant_id=merchant_id
             )

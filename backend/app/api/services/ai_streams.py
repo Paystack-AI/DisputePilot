@@ -20,8 +20,8 @@ from time import monotonic
 import sentry_sdk
 import sentry_sdk.logger as sentry_logger
 from redis.asyncio import Redis
-from redis.exceptions import ResponseError
 
+from app.api.repo.streams import StreamRepository
 from app.core.config import get_settings
 
 SETTINGS = get_settings()
@@ -48,12 +48,12 @@ class AiStreamPublisher:
     """backend -> ai"""
 
     def __init__(self, async_redis: Redis):
-        self._redis = async_redis
+        self._streams = StreamRepository(async_redis)
 
     async def publish(self, event: str, payload: dict, job_id: str | None = None) -> str:
         """Adds a job for the ai worker and returns its job id (for correlating the result)"""
         job_id = job_id or str(uuid.uuid4())
-        await self._redis.xadd(
+        await self._streams.add(
             SETTINGS.AI_REQUEST_STREAM,
             {
                 "event": event,
@@ -62,8 +62,7 @@ class AiStreamPublisher:
                 "payload": json.dumps(payload),
                 "created_at": datetime.now(UTC).isoformat(),
             },
-            maxlen=SETTINGS.AI_STREAM_MAXLEN,
-            approximate=True,
+            SETTINGS.AI_STREAM_MAXLEN,
         )
         sentry_logger.info(
             "Published {event} job {job_id} to the ai worker", event=event, job_id=job_id
@@ -85,7 +84,7 @@ class AiResultConsumer:
         block_ms: int = SETTINGS.AI_RESULT_BLOCK_MS,
         retry_pending_seconds: int = SETTINGS.AI_RESULT_RETRY_PENDING_SECONDS,
     ):
-        self._redis = async_redis
+        self._streams = StreamRepository(async_redis)
         self._handlers = handlers
         self.stream = stream
         self.dead_letter_stream = f"{stream}:dead"
@@ -98,11 +97,7 @@ class AiResultConsumer:
     async def ensure_group(self):
         """Creates the stream and group when missing. Starting from 0 means results added
         before the group existed are still read"""
-        try:
-            await self._redis.xgroup_create(self.stream, self.group, id="0", mkstream=True)
-        except ResponseError as exc:
-            if "BUSYGROUP" not in str(exc):  # already exists
-                raise
+        await self._streams.ensure_group(self.stream, self.group)
 
     async def run(self):
         """Reads until cancelled. Redis errors restart the loop with backoff instead of
@@ -137,10 +132,9 @@ class AiResultConsumer:
 
     async def process_new(self) -> int:
         """Blocks up to block_ms for results never delivered before; returns how many"""
-        response = await self._redis.xreadgroup(
-            self.group, self.consumer, {self.stream: ">"}, count=10, block=self._block_ms
+        entries = await self._streams.read_group(
+            self.stream, self.group, self.consumer, ">", count=10, block_ms=self._block_ms
         )
-        entries = self._entries(response)
 
         for entry_id, fields in entries:
             await self._process(entry_id, fields, deliveries=1)
@@ -152,17 +146,16 @@ class AiResultConsumer:
         start_id: str = "0"
 
         while True:
-            response = await self._redis.xreadgroup(
-                self.group, self.consumer, {self.stream: start_id}, count=10
+            entries = await self._streams.read_group(
+                self.stream, self.group, self.consumer, start_id, count=10
             )
-            entries = self._entries(response)
             if not entries:
                 return processed
 
             for entry_id, fields in entries:
                 # entries trimmed from the stream come back without fields
                 if not fields:
-                    await self._redis.xack(self.stream, self.group, entry_id)
+                    await self._streams.ack(self.stream, self.group, entry_id)
                     continue
                 await self._process(entry_id, fields, await self._deliveries(entry_id))
                 processed += 1
@@ -170,15 +163,7 @@ class AiResultConsumer:
             start_id = entries[-1][0]
 
     async def _deliveries(self, entry_id: str) -> int:
-        pending = await self._redis.xpending_range(
-            self.stream, self.group, min=entry_id, max=entry_id, count=1
-        )
-        return pending[0]["times_delivered"] if pending else 1
-
-    @staticmethod
-    def _entries(response) -> list[tuple[str, dict]]:
-        # [[stream, [(id, fields), ...]]] or [] when nothing arrived
-        return response[0][1] if response else []
+        return await self._streams.deliveries(self.stream, self.group, entry_id)
 
     async def _process(self, entry_id: str, fields: dict, deliveries: int):
         if deliveries > self._max_deliveries:
@@ -218,25 +203,24 @@ class AiResultConsumer:
             )
             return
 
-        await self._redis.xack(self.stream, self.group, entry_id)
+        await self._streams.ack(self.stream, self.group, entry_id)
 
     async def _dead_letter(self, entry_id: str, fields: dict, reason: str, deliveries: int):
         """Copies the result to the dead-letter stream and acks it, in one transaction"""
-        async with self._redis.pipeline(transaction=True) as pipe:
-            pipe.xadd(
-                self.dead_letter_stream,
-                {
-                    **fields,
-                    "original_id": entry_id,
-                    "reason": reason,
-                    "deliveries": str(deliveries),
-                    "dead_at": datetime.now(UTC).isoformat(),
-                },
-                maxlen=SETTINGS.AI_STREAM_MAXLEN,
-                approximate=True,
-            )
-            pipe.xack(self.stream, self.group, entry_id)
-            await pipe.execute()
+        await self._streams.move_and_ack(
+            self.stream,
+            self.group,
+            entry_id,
+            self.dead_letter_stream,
+            {
+                **fields,
+                "original_id": entry_id,
+                "reason": reason,
+                "deliveries": str(deliveries),
+                "dead_at": datetime.now(UTC).isoformat(),
+            },
+            SETTINGS.AI_STREAM_MAXLEN,
+        )
 
         sentry_logger.error(
             "Ai result {entry_id} moved to {stream}: {reason}",

@@ -8,6 +8,7 @@ from app.api.routers import (
     onboarding,
     orders,
     paystack,
+    reconciliation,
     settings,
     transactions,
     uploads,
@@ -26,4 +27,5 @@ router.include_router(orders.router, tags=["Orders"])
 router.include_router(transactions.router, tags=["Transactions"])
 router.include_router(uploads.router, tags=["Uploads"])
 router.include_router(fulfillments.router, tags=["Fulfillments"])
+router.include_router(reconciliation.router, tags=["Reconciliation"])
 router.include_router(events.router, tags=["Events"])

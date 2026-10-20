@@ -264,6 +264,13 @@ def queued_emails():
 
 
 @pytest.fixture(autouse=True)
+def sync_events():
+    """Capture the events a finished sync publishes instead of reaching redis"""
+    with patch("app.worker.tasks.transaction_sync._publish_sync_events") as publish:
+        yield publish
+
+
+@pytest.fixture(autouse=True)
 def queued_syncs():
     """Capture queued transaction syncs instead of publishing them to the broker"""
     with patch.object(sync_transactions, "apply_async") as apply_async:

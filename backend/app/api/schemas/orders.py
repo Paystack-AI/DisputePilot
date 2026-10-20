@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.api.models.enums import Currency, OrderSource, OrderStatus
+from app.api.models.enums import Currency, OrderResolution, OrderSource, OrderStatus
 from app.api.schemas.auth import AuthBase, LowerEmail
 from app.api.schemas.customers import CustomerRef
 from app.api.schemas.fulfillments import FulfillmentSummary
@@ -113,6 +113,10 @@ class OrderResponse(BaseModel):
     source: OrderSource
     # linked to a synced payment; order_number, amount, currency and customer are then locked
     is_linked: bool
+    # how the merchant settled it when no payment matched (cash_payment | payment_failed)
+    resolution: OrderResolution | None
+    flag_reason: str | None
+    flagged_at: datetime | None
     created_at: datetime
     updated_at: datetime | None
 
@@ -120,3 +124,13 @@ class OrderResponse(BaseModel):
 class OrderDetail(OrderResponse):
     transactions: list[TransactionSummary]
     fulfillments: list[FulfillmentSummary]
+
+
+class OrderResolve(AuthBase):
+    # cash_payment: paid outside paystack, the order becomes paid; payment_failed: it was
+    # never paid, the order is cancelled
+    resolution: OrderResolution
+
+
+class OrderFlag(AuthBase):
+    reason: str = Field(..., min_length=1, max_length=255)

@@ -6,11 +6,14 @@ import sentry_sdk
 import sentry_sdk.logger as sentry_logger
 from celery.exceptions import Reject
 from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session
 
 from app.api.clients.paystack import PaystackClient, PaystackError, create_http_client
 from app.api.models.merchants import Merchant
+from app.api.services.events import publish_event_sync
+from app.api.services.reconciliation_engine import MatchOutcome, auto_match_after_sync
 from app.core.security import Security
-from app.database.session import sync_session
+from app.database.session import sync_redis_client, sync_session
 from app.worker.celery_app import celery_app
 from app.worker.services.transaction_sync import (
     TransactionSync,
@@ -63,6 +66,7 @@ def sync_transactions(self, merchant_id: str, initial: bool = False):
             stored: int = TransactionSync(session, client, merchant).run(
                 initial=initial, started_at=datetime.now(UTC)
             )
+            outcome: MatchOutcome = _auto_match(session, merchant.id)
     except Exception as exc:
         sentry_sdk.capture_exception(exc)
         sentry_logger.error(
@@ -85,6 +89,52 @@ def sync_transactions(self, merchant_id: str, initial: bool = False):
         stored=stored,
         merchant_id=merchant_id,
     )
+    _publish_sync_events(merchant_id, stored, outcome)
+
+
+def _auto_match(session: Session, merchant_id: UUID) -> MatchOutcome:
+    """Reconcile what the sync brought in. The transactions are already committed, so a
+    failure here only skips matching until the next sync"""
+    try:
+        outcome: MatchOutcome = auto_match_after_sync(session, merchant_id)
+        session.commit()
+    except Exception as exc:
+        session.rollback()
+        sentry_sdk.capture_exception(exc)
+        sentry_logger.error(
+            "Automatic matching failed for merchant {merchant_id}", merchant_id=str(merchant_id)
+        )
+        return MatchOutcome()
+
+    if outcome.changed:
+        sentry_logger.info(
+            "Automatic matching for merchant {merchant_id}: {matched} matched, {suggested} "
+            "suggested, {flagged} flagged",
+            merchant_id=str(merchant_id),
+            **outcome.as_dict(),
+        )
+    return outcome
+
+
+def _publish_sync_events(merchant_id: str, stored: int, outcome: MatchOutcome):
+    """Tell the merchant's open dashboards; live updates are best effort"""
+    try:
+        publish_event_sync(
+            sync_redis_client, merchant_id, "transaction.synced", {"count_new": stored}
+        )
+        if outcome.changed:
+            publish_event_sync(
+                sync_redis_client,
+                merchant_id,
+                "reconciliation.updated",
+                {"session_id": None, "automatic": outcome.as_dict()},
+            )
+    except Exception as exc:
+        sentry_sdk.capture_exception(exc)
+        sentry_logger.error(
+            "Sync events could not be published for merchant {merchant_id}",
+            merchant_id=merchant_id,
+        )
 
 
 @celery_app.task

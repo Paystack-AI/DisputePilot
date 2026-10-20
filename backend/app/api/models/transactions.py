@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy import (
     BIGINT,
+    SMALLINT,
     UUID,
     VARCHAR,
     DateTime,
@@ -79,6 +80,10 @@ class Transaction(Base):
         default=ReconciliationStatus.UNMATCHED,
     )
     reconciled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # set when reconciliation matched it (automatically or an accepted suggestion); null for
+    # a merchant's manual match
+    match_tier: Mapped[int | None] = mapped_column(SMALLINT)
+    match_confidence: Mapped[int | None] = mapped_column(SMALLINT)
     # set while reconciliation_status is flagged: why the merchant flagged it for review
     flag_reason: Mapped[str | None] = mapped_column(VARCHAR(255))
     flagged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -4,11 +4,12 @@ from uuid import UUID
 import sentry_sdk.logger as sentry_logger
 
 from app.api.models.customers import Customer
-from app.api.models.enums import OrderStatus
+from app.api.models.enums import OrderResolution, OrderStatus
 from app.api.models.merchants import Merchant
 from app.api.models.orders import Order
 from app.api.repo.customers import CustomerRepository
 from app.api.repo.fulfillments import FulfillmentRepository
+from app.api.repo.matching import MatchingRepository
 from app.api.repo.orders import OrderRepository
 from app.api.repo.transactions import TransactionRepository
 from app.api.repo.uow import UnitOfWorkRepository
@@ -17,8 +18,10 @@ from app.api.schemas.fulfillments import FulfillmentSummary
 from app.api.schemas.orders import (
     OrderCreate,
     OrderDetail,
+    OrderFlag,
     OrderInDB,
     OrderListQuery,
+    OrderResolve,
     OrderResponse,
     OrderUpdate,
 )
@@ -54,6 +57,9 @@ def order_response(order: Order, customer: Customer | None, is_linked: bool) -> 
         status=order.status,
         source=order.source,
         is_linked=is_linked,
+        resolution=order.resolution,
+        flag_reason=order.flag_reason,
+        flagged_at=order.flagged_at,
         created_at=order.created_at,
         updated_at=order.updated_at,
     )
@@ -253,3 +259,97 @@ class OrderManagementService:
         )
 
         return order_response(order, customer, False)
+
+    async def _settle(self, merchant_id: UUID, order: Order) -> Order:
+        """Save a reconciliation action on the order. Suggestions involving it are dropped,
+        since it can no longer be matched"""
+        order.updated_at = datetime.now(UTC)
+        await self._uow.repo(MatchingRepository).drop_stale_suggestions(merchant_id)
+        return await self._order_service.update_order(order, commit=True)
+
+    async def resolve_order(
+        self,
+        curr_merchant: Merchant,
+        order_id: UUID,
+        payload: OrderResolve,
+        uow: UnitOfWorkRepository,
+    ) -> OrderResponse:
+        """Settle an order no payment matched: paid in cash (paid) or never paid
+        (cancelled). Only a pending, unlinked order can be resolved; resolving it again the
+        same way returns it unchanged"""
+        await self._uow_orders(uow)
+        merchant_id: UUID = curr_merchant.id
+
+        order, customer, is_linked = await self._get_order(merchant_id, order_id, for_update=True)
+        new_status: OrderStatus = (
+            OrderStatus.PAID
+            if payload.resolution == OrderResolution.CASH_PAYMENT
+            else OrderStatus.CANCELLED
+        )
+
+        if order.resolution == payload.resolution:
+            return order_response(order, customer, is_linked)
+        if is_linked:
+            raise OrderLinkedError(["status"])
+        if order.status != OrderStatus.PENDING:
+            raise OrderStatusTransitionError(order.status, new_status)
+
+        order.status = new_status
+        order.resolution = payload.resolution
+        # resolving it settles the review a flag asked for
+        order.flag_reason = None
+        order.flagged_at = None
+        order = await self._settle(merchant_id, order)
+
+        sentry_logger.info(
+            "Merchant {merchant_id} resolved order {order_id} as {resolution}",
+            merchant_id=str(merchant_id),
+            order_id=str(order_id),
+            resolution=payload.resolution.value,
+        )
+        return order_response(order, customer, False)
+
+    async def flag_order(
+        self, curr_merchant: Merchant, order_id: UUID, payload: OrderFlag, uow: UnitOfWorkRepository
+    ) -> OrderResponse:
+        """Mark the order for review; it is left out of matching until unflagged. Flagging
+        again only updates the reason"""
+        await self._uow_orders(uow)
+        merchant_id: UUID = curr_merchant.id
+
+        order, customer, is_linked = await self._get_order(merchant_id, order_id, for_update=True)
+
+        if not order.flagged_at:
+            order.flagged_at = datetime.now(UTC)
+        order.flag_reason = payload.reason
+        order = await self._settle(merchant_id, order)
+
+        sentry_logger.info(
+            "Merchant {merchant_id} flagged order {order_id}",
+            merchant_id=str(merchant_id),
+            order_id=str(order_id),
+        )
+        return order_response(order, customer, is_linked)
+
+    async def unflag_order(
+        self, curr_merchant: Merchant, order_id: UUID, uow: UnitOfWorkRepository
+    ) -> OrderResponse:
+        """Clear the flag; a pending order is matched again from the next pass"""
+        await self._uow_orders(uow)
+        merchant_id: UUID = curr_merchant.id
+
+        order, customer, is_linked = await self._get_order(merchant_id, order_id, for_update=True)
+        if not order.flagged_at:
+            return order_response(order, customer, is_linked)
+
+        order.flag_reason = None
+        order.flagged_at = None
+        order.updated_at = datetime.now(UTC)
+        order = await self._order_service.update_order(order, commit=True)
+
+        sentry_logger.info(
+            "Merchant {merchant_id} unflagged order {order_id}",
+            merchant_id=str(merchant_id),
+            order_id=str(order_id),
+        )
+        return order_response(order, customer, is_linked)

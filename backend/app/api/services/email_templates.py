@@ -1,3 +1,6 @@
+from datetime import date
+from html import escape
+
 from app.api.models.enums import OtpPurpose
 
 # subject and the line that says what the code is for, per purpose
@@ -42,3 +45,34 @@ def google_only_password_reset_email() -> tuple[str, str]:
         "<p>If you did not request this, you can ignore this email.</p>"
     )
     return "DisputePilot: Password reset requested", html
+
+
+def reconciliation_summary_email(
+    business_name: str, date_range_start: date, date_range_end: date, totals: dict[str, int]
+) -> tuple[str, str]:
+    """Sent when the merchant completes a reconciliation session"""
+    period: str = (
+        date_range_start.strftime("%d %b %Y")
+        if date_range_start == date_range_end
+        else f"{date_range_start:%d %b} to {date_range_end:%d %b %Y}"
+    )
+    rows: str = "".join(
+        f'<tr><td style="padding:4px 16px 4px 0">{label}</td>'
+        f'<td style="padding:4px 0"><strong>{totals[key]}</strong></td></tr>'
+        for key, label in (
+            ("matched", "Matched"),
+            ("suggested", "Suggested, not confirmed"),
+            ("unmatched_payments", "Payments with no order"),
+            ("unmatched_orders", "Orders with no payment"),
+            ("flagged", "Flagged for review"),
+        )
+    )
+    html: str = (
+        f"<p>Reconciliation for <strong>{escape(business_name)}</strong>, {period}, "
+        "is complete.</p>"
+        f"<p>{totals['total_transactions']} successful payments in the period.</p>"
+        f"<table>{rows}</table>"
+        "<p>Open DisputePilot to resolve anything left over. Matched payments with fulfillment "
+        "records are the strongest defence if a customer disputes them.</p>"
+    )
+    return f"DisputePilot: Reconciliation for {period}", html

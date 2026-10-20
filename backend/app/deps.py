@@ -20,6 +20,7 @@ from app.api.services.merchants import MerchantService
 from app.api.services.onboarding import OnboardingService
 from app.api.services.order_management import OrderManagementService
 from app.api.services.paystack import PaystackService
+from app.api.services.reconciliation import ReconciliationService
 from app.api.services.settings import SettingsService
 from app.api.services.transactions import TransactionService
 from app.api.services.uploads import UploadService
@@ -137,7 +138,12 @@ async def get_fulfillment_log_service() -> FulfillmentLogService:
     return FulfillmentLogService()
 
 
+async def get_reconciliation_service(redis: RedisDep) -> ReconciliationService:
+    return ReconciliationService(redis=redis)
+
+
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+ReconciliationServiceDep = Annotated[ReconciliationService, Depends(get_reconciliation_service)]
 UploadServiceDep = Annotated[UploadService, Depends(get_upload_service)]
 FulfillmentLogServiceDep = Annotated[FulfillmentLogService, Depends(get_fulfillment_log_service)]
 MerchantServiceDep = Annotated[MerchantService, Depends(get_merchant_service)]

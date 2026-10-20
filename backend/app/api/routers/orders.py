@@ -6,7 +6,9 @@ from fastapi import APIRouter, Query
 from app.api.schemas.orders import (
     OrderCreate,
     OrderDetail,
+    OrderFlag,
     OrderListQuery,
+    OrderResolve,
     OrderResponse,
     OrderUpdate,
 )
@@ -121,4 +123,65 @@ async def cancel_order(
     order_management_service: OrderManagementServiceDep,
 ):
     order: OrderResponse = await order_management_service.cancel_order(curr_merchant, order_id, uow)
+    return SuccessResponse(data=order)
+
+
+@router.put(
+    "/orders/{order_id}/resolve",
+    status_code=200,
+    response_model=SuccessResponse[OrderResponse],
+    description=(
+        "Settle an order no payment matched: cash_payment (paid outside Paystack, becomes "
+        "paid) or payment_failed (never paid, becomes cancelled). Pending, unlinked orders "
+        "only: 409 ORDER_LINKED or ORDER_STATUS_TRANSITION otherwise"
+    ),
+    dependencies=[write_limiter],
+)
+async def resolve_order(
+    uow: UnitOfWorkRepo,
+    curr_merchant: CurrentMerchant,
+    order_id: UUID,
+    payload: OrderResolve,
+    order_management_service: OrderManagementServiceDep,
+):
+    order: OrderResponse = await order_management_service.resolve_order(
+        curr_merchant, order_id, payload, uow
+    )
+    return SuccessResponse(data=order)
+
+
+@router.put(
+    "/orders/{order_id}/flag",
+    status_code=200,
+    response_model=SuccessResponse[OrderResponse],
+    description="Flag the order for review with a reason; it is left out of matching meanwhile",
+    dependencies=[write_limiter],
+)
+async def flag_order(
+    uow: UnitOfWorkRepo,
+    curr_merchant: CurrentMerchant,
+    order_id: UUID,
+    payload: OrderFlag,
+    order_management_service: OrderManagementServiceDep,
+):
+    order: OrderResponse = await order_management_service.flag_order(
+        curr_merchant, order_id, payload, uow
+    )
+    return SuccessResponse(data=order)
+
+
+@router.put(
+    "/orders/{order_id}/unflag",
+    status_code=200,
+    response_model=SuccessResponse[OrderResponse],
+    description="Remove the flag; a pending order is matched again from the next pass",
+    dependencies=[write_limiter],
+)
+async def unflag_order(
+    uow: UnitOfWorkRepo,
+    curr_merchant: CurrentMerchant,
+    order_id: UUID,
+    order_management_service: OrderManagementServiceDep,
+):
+    order: OrderResponse = await order_management_service.unflag_order(curr_merchant, order_id, uow)
     return SuccessResponse(data=order)

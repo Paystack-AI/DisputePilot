@@ -19,7 +19,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.api.models.base import Base
-from app.api.models.enums import Currency, OrderSource, OrderStatus
+from app.api.models.enums import Currency, OrderResolution, OrderSource, OrderStatus
 
 
 class Order(Base):
@@ -58,6 +58,17 @@ class Order(Base):
             values_callable=lambda e: [m.value for m in e],
         )
     )
+    # set when the merchant settles an order no payment matched (cash, or it never paid)
+    resolution: Mapped[OrderResolution | None] = mapped_column(
+        PgEnum(
+            OrderResolution,
+            name="order_resolution",
+            values_callable=lambda e: [m.value for m in e],
+        )
+    )
+    # set while the merchant has flagged the order for review
+    flag_reason: Mapped[str | None] = mapped_column(VARCHAR(255))
+    flagged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)

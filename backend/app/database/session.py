@@ -1,5 +1,7 @@
 from collections.abc import AsyncGenerator
 
+from redis import ConnectionPool as SyncConnectionPool
+from redis import Redis as SyncRedis
 from redis.asyncio import Redis
 from redis.asyncio.connection import ConnectionPool
 from redis.backoff import ExponentialBackoff
@@ -62,6 +64,17 @@ A redis client with:
 """
 
 redis_client: Redis = Redis(connection_pool=redis_pool)
+
+# for celery tasks, which run without an event loop; connects on first use
+sync_redis_client: SyncRedis = SyncRedis(
+    connection_pool=SyncConnectionPool.from_url(
+        SETTINGS.REDIS_URL,
+        decode_responses=True,
+        max_connections=10,
+        socket_connect_timeout=3,
+        socket_timeout=5,
+    )
+)
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:

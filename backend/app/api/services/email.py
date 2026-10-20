@@ -14,7 +14,12 @@ AUTH_EMAIL_PRIORITY: int = 8
 
 class EmailService:
     async def send(
-        self, recipient_email: str, subject: str, html: str, priority: int = AUTH_EMAIL_PRIORITY
+        self,
+        recipient_email: str,
+        subject: str,
+        html: str,
+        priority: int = AUTH_EMAIL_PRIORITY,
+        notification_id: str | None = None,
     ) -> str:
         """Queue an email for the worker to send; returns its id, which the worker
         also uses as the idempotency key with resend"""
@@ -29,6 +34,7 @@ class EmailService:
                     "recipient_email": recipient_email,
                     "subject": subject,
                     "html": html,
+                    "notification_id": notification_id,
                 },
                 priority=priority,
             )
