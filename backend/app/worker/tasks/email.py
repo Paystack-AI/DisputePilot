@@ -6,6 +6,7 @@ import sentry_sdk.logger as sentry_logger
 from celery.exceptions import Reject
 from resend.exceptions import ResendError
 
+from app.api.clients.minio import MinioStorage, create_minio_storage
 from app.api.models.enums import NotificationStatus
 from app.api.models.notifications_log import NotificationLog
 from app.core.config import get_settings
@@ -16,6 +17,16 @@ from app.worker.tasks.base import BaseTaskWithRetry
 SETTINGS = get_settings()
 
 resend.api_key = SETTINGS.RESEND_API_KEY
+
+# one storage client per worker process, for attachments
+_storage: MinioStorage | None = None
+
+
+def _get_storage() -> MinioStorage:
+    global _storage
+    if _storage is None:
+        _storage = create_minio_storage()
+    return _storage
 
 
 def _is_transient(exc: ResendError) -> bool:
@@ -37,21 +48,29 @@ def send_email(
     subject: str,
     html: str,
     notification_id: str | None = None,
+    attachment_object: str | None = None,
+    attachment_name: str | None = None,
 ):
     """Send any email: the caller builds the subject and body, so one task serves
     every kind of email. The task id is passed to resend as the idempotency key; it
     stays the same across retries and redeliveries, so the same email is never
-    sent twice. notification_id is the notifications_log row to mark sent or failed"""
+    sent twice. notification_id is the notifications_log row to mark sent or failed.
+    attachment_object is a bucket key (e.g. an evidence pdf), read here so the file never
+    travels through the broker"""
+    params: dict = {
+        "from": SETTINGS.API_EMAIL,
+        "to": recipient_email,
+        "subject": subject,
+        "html": html,
+    }
+    if attachment_object:
+        content: bytes = _get_storage().retrieve_sync(SETTINGS.MINIO_BUCKET, attachment_object)
+        params["attachments"] = [
+            {"filename": attachment_name or "attachment.pdf", "content": list(content)}
+        ]
+
     try:
-        resend.Emails.send(
-            {
-                "from": SETTINGS.API_EMAIL,
-                "to": recipient_email,
-                "subject": subject,
-                "html": html,
-            },
-            options={"idempotency_key": self.request.id},
-        )
+        resend.Emails.send(params, options={"idempotency_key": self.request.id})
     except ResendError as exc:
         sentry_sdk.capture_exception(exc)
         sentry_logger.error(

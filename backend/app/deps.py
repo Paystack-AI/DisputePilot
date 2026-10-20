@@ -15,6 +15,7 @@ from app.api.repo.redis import RedisRepository
 from app.api.repo.uow import UnitOfWorkRepository
 from app.api.services.auth import AuthService
 from app.api.services.customer_ledger import CustomerLedgerService
+from app.api.services.disputes import DisputeService
 from app.api.services.fulfillment_log import FulfillmentLogService
 from app.api.services.merchants import MerchantService
 from app.api.services.onboarding import OnboardingService
@@ -143,12 +144,17 @@ async def get_reconciliation_service(redis: RedisDep) -> ReconciliationService:
     return ReconciliationService(redis=redis)
 
 
+async def get_dispute_service(redis: RedisDep) -> DisputeService:
+    return DisputeService(redis=redis)
+
+
 async def get_webhook_service(security: SecurityDep) -> WebhookService:
     return WebhookService(security=security)
 
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 WebhookServiceDep = Annotated[WebhookService, Depends(get_webhook_service)]
+DisputeServiceDep = Annotated[DisputeService, Depends(get_dispute_service)]
 ReconciliationServiceDep = Annotated[ReconciliationService, Depends(get_reconciliation_service)]
 UploadServiceDep = Annotated[UploadService, Depends(get_upload_service)]
 FulfillmentLogServiceDep = Annotated[FulfillmentLogService, Depends(get_fulfillment_log_service)]

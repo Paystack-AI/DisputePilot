@@ -12,6 +12,7 @@ dependencies = [
     "fastapi-limiter>=0.2.0",
     "fastapi[all]>=0.115",
     "gevent>=26.9.0",
+    "jinja2>=3.1.6",
     "minio>=7.2.20",
     "phonenumbers>=9.0.41",
     "pillow>=11.0",
@@ -25,6 +26,7 @@ dependencies = [
     "sqlalchemy>=2.0.54",
     "tzdata>=2026.5",
     "uvicorn[standard]>=0.30",
+    "weasyprint>=70.0",
 ]
 
 [project.optional-dependencies]

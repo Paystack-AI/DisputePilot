@@ -44,6 +44,46 @@ class DisputeStatus(enum.StrEnum):
     AUTO_ACCEPTED = "auto_accepted"
 
 
+class EvidenceState(enum.StrEnum):
+    """Where the dispute's evidence draft is"""
+
+    GENERATING = "generating"  # the ai chain is running
+    READY = "ready"  # a draft exists for the merchant to edit
+
+
+class EvidenceStep(enum.StrEnum):
+    """The ai chain's current step (classify -> generate -> score)"""
+
+    CLASSIFY = "classify"
+    GENERATE = "generate"
+    SCORE = "score"
+
+
+class GenerationSource(enum.StrEnum):
+    AI = "ai"
+    TEMPLATE = "template"  # the ai failed or timed out: a pre-written draft for the category
+
+
+class SubmissionState(enum.StrEnum):
+    """The merchant's response to paystack, run in the background"""
+
+    SUBMITTING = "submitting"  # declining with evidence
+    ACCEPTING = "accepting"  # conceding (refund)
+    SUBMITTED = "submitted"
+    ACCEPTED = "accepted"
+    FAILED = "failed"
+
+
+class EvidenceChange(enum.StrEnum):
+    """What a revision of the evidence changed"""
+
+    GENERATED = "generated"
+    TEXT = "text"
+    DOCUMENTS = "documents"
+    TEXT_AND_DOCUMENTS = "text_and_documents"
+    SUBMITTED = "submitted"
+
+
 class EvidenceFileType(enum.StrEnum):
     RECEIPT = "receipt"
     DELIVERY_PHOTO = "delivery_photo"
@@ -64,6 +104,8 @@ class NotificationMessageType(enum.StrEnum):
     EVIDENCE_READY = "evidence_ready"
     RECONCILIATION_SUMMARY = "reconciliation_summary"
     DISPUTE_RESOLVED = "dispute_resolved"
+    # the response went to paystack; the evidence pdf is attached
+    DISPUTE_SUBMITTED = "dispute_submitted"
 
 
 class NotificationStatus(enum.StrEnum):

@@ -112,8 +112,19 @@ async def readiness_for(
     repo: ReadinessRepository, transactions: list[Transaction]
 ) -> dict[UUID, ReadinessDetail]:
     """Scores for the matched payments among transactions, keyed by id"""
+    return await readiness_for_payments(
+        repo, [(t.id, t.order_id, t.reconciliation_status) for t in transactions]
+    )
+
+
+async def readiness_for_payments(
+    repo: ReadinessRepository,
+    payments: list[tuple[UUID, UUID | None, ReconciliationStatus]],
+) -> dict[UUID, ReadinessDetail]:
+    """readiness_for from (id, order_id, reconciliation_status), for callers that did not
+    load whole transactions"""
     ids: list[UUID] = [
-        t.id for t in transactions if t.order_id and t.reconciliation_status in MATCHED
+        payment_id for payment_id, order_id, status in payments if order_id and status in MATCHED
     ]
     if not ids:
         return {}

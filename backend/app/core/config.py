@@ -120,6 +120,11 @@ class Settings(BaseSettings):
     # how long one read blocks waiting for new messages, and how often pending ones retry
     AI_RESULT_BLOCK_MS: int = 5_000
     AI_RESULT_RETRY_PENDING_SECONDS: int = 60
+    # an evidence step with no result after this long falls back (keyword classification,
+    # the template narrative, or no score)
+    AI_STEP_TIMEOUT_SECONDS: int = 60
+    # how often the api checks for such steps
+    AI_TIMEOUT_SWEEP_SECONDS: int = 15
     # Minio
     MINIO_ENDPOINT: str
     MINIO_SECRET_KEY: str

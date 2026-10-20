@@ -34,6 +34,8 @@ class StoredFile(Base):
     # the name the merchant uploaded, for display
     file_name: Mapped[str] = mapped_column(VARCHAR(255))
     content_type: Mapped[str] = mapped_column(VARCHAR(100))
+    # the merchant's label for a dispute document, shown in the evidence pdf
+    caption: Mapped[str | None] = mapped_column(VARCHAR(255))
     size: Mapped[int] = mapped_column(BIGINT)  # bytes, as stored
     width: Mapped[int] = mapped_column(INTEGER)
     height: Mapped[int] = mapped_column(INTEGER)

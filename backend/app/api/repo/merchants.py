@@ -1,4 +1,8 @@
 from typing import Any
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.orm import load_only
 
 from app.api.models.merchants import Merchant
 from app.api.repo.base import BaseRepository
@@ -31,3 +35,14 @@ class MerchantRepository(BaseRepository[MerchantInDB, Merchant]):
             )
 
         return filter_conditions
+
+    async def get_profile(self, merchant_id: UUID) -> Merchant | None:
+        """id, business name and paystack integration id only (no key, no password hash),
+        for documents and events"""
+        return await self._async_session.scalar(
+            select(Merchant)
+            .options(
+                load_only(Merchant.id, Merchant.business_name, Merchant.paystack_integration_id)
+            )
+            .where(Merchant.id == merchant_id)
+        )
