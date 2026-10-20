@@ -32,6 +32,18 @@ beat_schedule: dict = {
         "schedule": crontab(hour=1, minute=0),
         "options": {"priority": 4},
     },
+    # disputes for merchants without a working webhook
+    "dispute-poll": {
+        "task": "app.worker.tasks.disputes.schedule_dispute_polls",
+        "schedule": crontab(minute="*/5"),
+        "options": {"priority": 6},
+    },
+    # the 8 and 4 hour deadline warnings
+    "dispute-deadline-watch": {
+        "task": "app.worker.tasks.disputes.watch_deadlines",
+        "schedule": crontab(minute="*/15"),
+        "options": {"priority": 7},
+    },
     # uploads never attached to a fulfillment, or detached from one
     "hourly-unattached-file-cleanup": {
         "task": "app.worker.tasks.files.delete_unattached_files",

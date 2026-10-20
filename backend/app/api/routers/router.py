@@ -12,6 +12,7 @@ from app.api.routers import (
     settings,
     transactions,
     uploads,
+    webhooks,
 )
 from app.core.config import get_settings
 
@@ -29,3 +30,4 @@ router.include_router(uploads.router, tags=["Uploads"])
 router.include_router(fulfillments.router, tags=["Fulfillments"])
 router.include_router(reconciliation.router, tags=["Reconciliation"])
 router.include_router(events.router, tags=["Events"])
+router.include_router(webhooks.router, tags=["Webhooks"])

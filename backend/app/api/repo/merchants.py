@@ -23,6 +23,8 @@ class MerchantRepository(BaseRepository[MerchantInDB, Merchant]):
             filter_conditions.append(self.model.google_id == filters["google_id"])
         if "google_email" in filters:
             filter_conditions.append(self.model.google_email == filters["google_email"])
+        if "webhook_token" in filters:
+            filter_conditions.append(self.model.webhook_token == filters["webhook_token"])
         if "paystack_integration_id" in filters:
             filter_conditions.append(
                 self.model.paystack_integration_id == filters["paystack_integration_id"]

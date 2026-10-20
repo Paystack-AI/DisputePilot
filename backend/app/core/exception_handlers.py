@@ -34,6 +34,7 @@ from app.core.exceptions import (
     TokenExpiredError,
     TooManyStreamsError,
     UnsupportedFileTypeError,
+    WebhookSignatureError,
     exception_handler,
 )
 
@@ -224,6 +225,10 @@ class ExceptionHandler:
                     "and try again."
                 },
             ),
+        )
+        self.app.add_exception_handler(
+            WebhookSignatureError,
+            exception_handler(401, {"message": "Invalid webhook signature."}),
         )
         self.app.add_exception_handler(
             RateLimitExceeded,

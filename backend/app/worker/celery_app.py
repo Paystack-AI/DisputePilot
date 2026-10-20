@@ -8,6 +8,8 @@ tasks: list[str] = [
     "app.worker.tasks.email",
     "app.worker.tasks.files",
     "app.worker.tasks.transaction_sync",
+    "app.worker.tasks.webhooks",
+    "app.worker.tasks.disputes",
 ]
 
 celery_app = Celery(

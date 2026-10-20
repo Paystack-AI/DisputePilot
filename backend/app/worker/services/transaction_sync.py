@@ -60,7 +60,7 @@ def _customer_email(customer: dict) -> str | None:
 
 
 class TransactionSync:
-    def __init__(self, session: Session, client: PaystackClient, merchant: Merchant):
+    def __init__(self, session: Session, client: PaystackClient | None, merchant: Merchant):
         self._session = session
         self._client = client
         self._merchant = merchant
@@ -136,6 +136,11 @@ class TransactionSync:
             onboarding.updated_at = datetime.now(UTC)
 
         self._session.commit()
+
+    def store(self, transactions: list[dict], synced_at: datetime | None = None) -> int:
+        """Upsert transactions received outside a sync (a webhook, a dispute's payment);
+        needs no client. The caller commits"""
+        return self._store_page(transactions, synced_at or datetime.now(UTC))
 
     def _store_page(self, transactions: list[dict], synced_at: datetime) -> int:
         # keyed by paystack id: one upsert can't touch the same row twice

@@ -237,6 +237,13 @@ class TooManyStreamsError(AppException):
         self.limit = limit
 
 
+class WebhookSignatureError(AppException):
+    """The webhook body is not signed with the merchant's paystack secret key."""
+
+    def __init__(self):
+        super().__init__("WEBHOOK_SIGNATURE_INVALID")
+
+
 class RateLimitExceeded(AppException):
     def __init__(self, retry_after: int):
         super().__init__("RATE_LIMITED")
