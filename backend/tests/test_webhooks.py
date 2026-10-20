@@ -3,6 +3,7 @@ import hmac
 import json
 from contextlib import nullcontext
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 from uuid import UUID
 
@@ -49,12 +50,30 @@ def _dispute(dispute_id: int = 900, **fields) -> dict:
         "status": "awaiting-merchant-feedback",
         "resolution": None,
         "category": "chargeback",
-        "note": "Customer says the item never arrived",
+        "note": None,
+        "messages": [
+            {
+                "sender": "disputes@bank.example",
+                "body": "Customer says the item never arrived",
+                "createdAt": datetime.now(UTC).isoformat(),
+            }
+        ],
+        "customer": {
+            "id": 10207,
+            "first_name": "Ada",
+            "last_name": "Obi",
+            "email": "ada@example.com",
+            "customer_code": "CUS_ada",
+            "phone": None,
+        },
         "bin": "408408",
         "last4": "4081",
         "dueAt": (datetime.now(UTC) + timedelta(hours=16)).isoformat(),
         "createdAt": datetime.now(UTC).isoformat(),
-        "transaction": _paystack_transaction(dispute_id + 1),
+        # as paystack sends it: the embedded transaction's customer is nearly empty
+        "transaction": _paystack_transaction(
+            dispute_id + 1, customer={"international_format_phone": None}
+        ),
     }
     dispute.update(fields)
     return dispute
@@ -220,6 +239,8 @@ class TestProcess:
         assert dispute.paystack_status == "awaiting-merchant-feedback"
         assert dispute.reason_raw == "Customer says the item never arrived"
         assert dispute.paystack_reference == "ref-901"
+        # the payment's customer came from the dispute's own customer object
+        assert transaction.customer_email == "ada@example.com"
 
         types = [call.args[1] for call in task_db.published.call_args_list]
         assert "dispute.created" in types
@@ -262,12 +283,21 @@ class TestProcess:
         assert NotificationMessageType.DISPUTE_RESOLVED in messages
 
     @pytest.mark.asyncio
-    async def test_unanswered_is_auto_accepted(self, task_db: Session):
+    @pytest.mark.parametrize(
+        ("resolution", "status"),
+        [
+            ("auto-accepted", DisputeStatus.AUTO_ACCEPTED),
+            ("merchant-accepted", DisputeStatus.LOST),
+        ],
+    )
+    async def test_refunded_outcomes(
+        self, task_db: Session, resolution: str, status: DisputeStatus
+    ):
         merchant: Merchant = _merchant(task_db)
-        accepted: dict = _dispute(status="resolved", resolution="merchant-accepted")
-        process_webhook_event(self._event(task_db, merchant, "charge.dispute.resolve", accepted))
+        resolved: dict = _dispute(status="resolved", resolution=resolution)
+        process_webhook_event(self._event(task_db, merchant, "charge.dispute.resolve", resolved))
 
-        assert task_db.scalar(select(Dispute.status)) == DisputeStatus.AUTO_ACCEPTED
+        assert task_db.scalar(select(Dispute.status)) == status
 
     @pytest.mark.asyncio
     async def test_reminder(self, task_db: Session):
@@ -307,3 +337,100 @@ class TestProcess:
         assert order.status == OrderStatus.PAID
         types = [call.args[1] for call in task_db.published.call_args_list]
         assert types == ["transaction.synced", "reconciliation.updated"]
+
+
+SAMPLES: dict = json.loads(
+    (Path(__file__).parent / "fixtures" / "paystack_webhooks.json").read_text()
+)
+
+
+class TestPaystackSamples:
+    """The payloads from paystack's webhook docs, unchanged"""
+
+    task_db = TestProcess.task_db
+
+    @staticmethod
+    def _run(task_db: Session, merchant: Merchant, name: str):
+        process_webhook_event(TestProcess._event(task_db, merchant, name, SAMPLES[name]["data"]))
+
+    @pytest.mark.asyncio
+    async def test_dispute_create(self, task_db: Session):
+        merchant: Merchant = _merchant(task_db)
+        self._run(task_db, merchant, "charge.dispute.create")
+
+        dispute: Dispute = task_db.scalar(select(Dispute))
+        transaction: Transaction = task_db.get(Transaction, dispute.transaction_id)
+        assert dispute.paystack_dispute_id == 358950
+        assert dispute.amount == 5800
+        assert dispute.status == DisputeStatus.PENDING
+        assert dispute.paystack_status == "awaiting-merchant-feedback"
+        assert dispute.paystack_category == "chargeback"
+        assert dispute.reason_raw == "Customer complained about debit without value"
+        assert dispute.due_at == datetime(2020, 11, 25, 18, 0, tzinfo=UTC)
+        assert dispute.created_at == datetime(2020, 11, 24, 13, 46, 57, tzinfo=UTC)
+        assert dispute.paystack_reference == "v3mjfgbnc19v97x"
+        # stored from the embedded transaction, with the dispute's customer
+        assert transaction.paystack_transaction_id == 896467688
+        assert transaction.customer_email == "example@test.com"
+        assert transaction.customer_name == "John Doe"
+        assert transaction.metadata_ is None  # paystack sent ""
+
+    @pytest.mark.asyncio
+    async def test_dispute_remind_after_create(self, task_db: Session):
+        merchant: Merchant = _merchant(task_db)
+        self._run(task_db, merchant, "charge.dispute.create")
+        task_db.published.reset_mock()
+
+        self._run(task_db, merchant, "charge.dispute.remind")
+
+        assert task_db.scalar(select(func.count(Dispute.id))) == 1
+        types = [call.args[1] for call in task_db.published.call_args_list]
+        assert types == ["deadline.warning"]
+
+    @pytest.mark.asyncio
+    async def test_dispute_resolve_auto_accepted(self, task_db: Session):
+        merchant: Merchant = _merchant(task_db)
+        # a dispute we never saw open: created straight from its resolution
+        self._run(task_db, merchant, "charge.dispute.resolve")
+
+        dispute: Dispute = task_db.scalar(select(Dispute))
+        transaction: Transaction = task_db.get(Transaction, dispute.transaction_id)
+        assert dispute.status == DisputeStatus.AUTO_ACCEPTED
+        assert dispute.resolution == "auto_accepted"
+        assert dispute.paystack_resolution == "auto-accepted"
+        assert dispute.resolved_at == datetime(2020, 11, 24, 14, 0, 2, tzinfo=UTC)
+        assert transaction.status.value == "reversed"
+
+    @pytest.mark.asyncio
+    async def test_charge_success(self, task_db: Session):
+        merchant: Merchant = _merchant(task_db)
+        self._run(task_db, merchant, "charge.success")
+
+        transaction: Transaction = task_db.scalar(select(Transaction))
+        assert transaction.paystack_reference == "qTPrJoy9Bx"
+        assert transaction.amount == 10000
+        assert transaction.customer_email == "bojack@horseman.com"
+        assert transaction.paid_at == datetime(2016, 9, 30, 21, 10, 19, tzinfo=UTC)
+        assert transaction.metadata_ is None  # paystack sent 0
+        assert transaction.paystack_fees is None
+
+
+class TestSampleDelivery:
+    @pytest.mark.asyncio
+    async def test_signed_sample_is_accepted(
+        self,
+        async_client: AsyncClient,
+        auth_headers: dict,
+        session_maker: SessionMaker,
+        queued_webhooks: MagicMock,
+    ):
+        await _connect_key(session_maker)
+        path: str = await _webhook_path(async_client, auth_headers)
+        body: bytes = json.dumps(SAMPLES["charge.dispute.create"]).encode()
+
+        res: Response = await async_client.post(
+            path, content=body, headers={"x-paystack-signature": _sign(body)}
+        )
+
+        assert res.status_code == 200
+        queued_webhooks.assert_called_once()
