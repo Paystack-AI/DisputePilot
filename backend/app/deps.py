@@ -24,6 +24,7 @@ from app.api.services.paystack import PaystackService
 from app.api.services.reconciliation import ReconciliationService
 from app.api.services.settings import SettingsService
 from app.api.services.transactions import TransactionService
+from app.api.services.trust import TrustService
 from app.api.services.uploads import UploadService
 from app.api.services.webhooks import WebhookService
 from app.core.config import get_settings
@@ -144,6 +145,10 @@ async def get_reconciliation_service(redis: RedisDep) -> ReconciliationService:
     return ReconciliationService(redis=redis)
 
 
+async def get_trust_service() -> TrustService:
+    return TrustService()
+
+
 async def get_dispute_service(redis: RedisDep) -> DisputeService:
     return DisputeService(redis=redis)
 
@@ -155,6 +160,7 @@ async def get_webhook_service(security: SecurityDep) -> WebhookService:
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 WebhookServiceDep = Annotated[WebhookService, Depends(get_webhook_service)]
 DisputeServiceDep = Annotated[DisputeService, Depends(get_dispute_service)]
+TrustServiceDep = Annotated[TrustService, Depends(get_trust_service)]
 ReconciliationServiceDep = Annotated[ReconciliationService, Depends(get_reconciliation_service)]
 UploadServiceDep = Annotated[UploadService, Depends(get_upload_service)]
 FulfillmentLogServiceDep = Annotated[FulfillmentLogService, Depends(get_fulfillment_log_service)]

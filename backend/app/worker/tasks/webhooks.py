@@ -26,6 +26,7 @@ from app.worker.services.disputes import DisputeIntake, DisputeIntakeService
 from app.worker.services.transaction_sync import TransactionSync
 from app.worker.tasks.base import BaseTaskWithRetry
 from app.worker.tasks.transaction_sync import _http_client
+from app.worker.tasks.trust import request_trust_update_sync
 
 SECURITY = Security()
 
@@ -74,6 +75,7 @@ def process_webhook_event(self, event_id: str):
                 events.mark_processed(event, datetime.now(UTC))
                 session.commit()
                 _after_payment(str(merchant.id), stored, outcome)
+                request_trust_update_sync(merchant.id, "payment_received")
             elif name in DISPUTE_EVENTS:
                 intake: DisputeIntake = DisputeIntakeService(
                     session, merchant, _client(merchant)
@@ -81,6 +83,7 @@ def process_webhook_event(self, event_id: str):
                 events.mark_processed(event, datetime.now(UTC))
                 session.commit()
                 _after_dispute(session, merchant, name, intake)
+                _dispute_trust(merchant.id, intake)
             else:
                 events.mark_processed(event, datetime.now(UTC))
                 session.commit()
@@ -121,3 +124,11 @@ def _after_dispute(session: Session, merchant: Merchant, name: str, intake: Disp
         announce_update(session, merchant, intake)
     else:
         announce(session, merchant, intake)
+
+
+def _dispute_trust(merchant_id, intake: DisputeIntake):
+    """A new dispute moves the dispute rate, a resolution the win rate"""
+    if intake.created:
+        request_trust_update_sync(merchant_id, "dispute_opened")
+    elif intake.resolved_now:
+        request_trust_update_sync(merchant_id, "dispute_resolved")

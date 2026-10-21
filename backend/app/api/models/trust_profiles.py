@@ -40,6 +40,10 @@ class TrustProfile(Base):
     dispute_win_rate: Mapped[float | None] = mapped_column(FLOAT)
     avg_response_time_pct: Mapped[float | None] = mapped_column(FLOAT)
     evidence_readiness_avg: Mapped[float | None] = mapped_column(FLOAT)
+    # the sample behind the state: successful payments in the last 30 days, and days since
+    # the merchant joined (below the minimum the state stays new)
+    payments_30d: Mapped[int | None] = mapped_column(INTEGER)
+    days_on_platform: Mapped[int | None] = mapped_column(INTEGER)
     public_token: Mapped[str] = mapped_column(VARCHAR(64), unique=True)
     last_computed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(

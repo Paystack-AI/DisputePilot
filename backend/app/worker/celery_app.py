@@ -11,6 +11,7 @@ tasks: list[str] = [
     "app.worker.tasks.webhooks",
     "app.worker.tasks.disputes",
     "app.worker.tasks.dispute_submission",
+    "app.worker.tasks.trust",
 ]
 
 celery_app = Celery(

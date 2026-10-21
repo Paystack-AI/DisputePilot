@@ -21,6 +21,7 @@ from app.worker.services.transaction_sync import (
     merchants_due_for_sync,
 )
 from app.worker.tasks.base import BaseTaskWithRetry
+from app.worker.tasks.trust import request_trust_update_sync
 
 # below auth emails (8): nobody waits on the daily run; the initial sync drives the
 # onboarding progress bar, so it goes ahead of it
@@ -90,6 +91,8 @@ def sync_transactions(self, merchant_id: str, initial: bool = False):
         merchant_id=merchant_id,
     )
     _publish_sync_events(merchant_id, stored, outcome)
+    if stored or outcome.changed:
+        request_trust_update_sync(merchant_id, "transactions_synced")
 
 
 def _auto_match(session: Session, merchant_id: UUID) -> MatchOutcome:

@@ -11,6 +11,7 @@ from app.api.schemas.transactions import (
     TransactionResponse,
     TransactionSyncResponse,
 )
+from app.api.services import trust_triggers
 from app.deps import (
     CurrentMerchant,
     TransactionServiceDep,
@@ -107,6 +108,10 @@ async def match_transaction(
     transaction: TransactionResponse = await transaction_service.match_transaction(
         curr_merchant, reference, payload, uow
     )
+    # the change is committed: queue the merchant's trust recomputation
+    await trust_triggers.request_trust_update(
+        curr_merchant.id, trust_triggers.RECONCILIATION_UPDATED
+    )
     return SuccessResponse(data=transaction)
 
 
@@ -127,6 +132,10 @@ async def flag_transaction(
     transaction: TransactionResponse = await transaction_service.flag_transaction(
         curr_merchant, reference, payload, uow
     )
+    # the change is committed: queue the merchant's trust recomputation
+    await trust_triggers.request_trust_update(
+        curr_merchant.id, trust_triggers.RECONCILIATION_UPDATED
+    )
     return SuccessResponse(data=transaction)
 
 
@@ -145,5 +154,9 @@ async def unflag_transaction(
 ):
     transaction: TransactionResponse = await transaction_service.unflag_transaction(
         curr_merchant, reference, uow
+    )
+    # the change is committed: queue the merchant's trust recomputation
+    await trust_triggers.request_trust_update(
+        curr_merchant.id, trust_triggers.RECONCILIATION_UPDATED
     )
     return SuccessResponse(data=transaction)

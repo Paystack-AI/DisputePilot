@@ -2,7 +2,7 @@ from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel
-from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import Select, and_, exists, func, or_, select
 from sqlalchemy.orm import aliased
 
 from app.api.models.customers import Customer
@@ -30,12 +30,12 @@ class ReadinessRepository(BaseRepository[BaseModel, Transaction]):
     def _get_filters(self, **filters) -> list[Any]:
         return []
 
-    async def evidence(
-        self, transaction_ids: list[UUID], repeat_payments: int
-    ) -> dict[UUID, tuple[bool, ...]]:
-        """Per payment, in one query: linked to an order, customer has an email or phone,
-        fulfillment logged, delivery photo attached, tracking number or recipient recorded,
-        repeat customer (repeat_payments earlier successful payments, not a shared email)"""
+    @staticmethod
+    def evidence_statement(transaction_ids, repeat_payments: int) -> Select:
+        """Per payment: linked to an order, customer has an email or phone, fulfillment
+        logged, delivery photo attached, tracking number or recipient recorded, repeat
+        customer (repeat_payments earlier successful payments, not a shared email).
+        transaction_ids is a list or a subquery of ids"""
         customer_id = func.coalesce(Transaction.customer_id, Order.customer_id)
         # recorded against the payment itself or against its order
         linked_fulfillment = and_(
@@ -57,7 +57,7 @@ class ReadinessRepository(BaseRepository[BaseModel, Transaction]):
             .scalar_subquery()
         )
 
-        rows = await self._async_session.execute(
+        return (
             select(
                 Transaction.id,
                 Order.id.is_not(None),
@@ -74,4 +74,16 @@ class ReadinessRepository(BaseRepository[BaseModel, Transaction]):
             .outerjoin(Customer, Customer.id == customer_id)
             .where(Transaction.id.in_(transaction_ids))
         )
-        return {row[0]: tuple(bool(value) for value in row[1:]) for row in rows.all()}
+
+    @staticmethod
+    def to_facts(rows) -> dict[UUID, tuple[bool, ...]]:
+        return {row[0]: tuple(bool(value) for value in row[1:]) for row in rows}
+
+    async def evidence(
+        self, transaction_ids: list[UUID], repeat_payments: int
+    ) -> dict[UUID, tuple[bool, ...]]:
+        """evidence_statement for these payments, in one query"""
+        rows = await self._async_session.execute(
+            self.evidence_statement(transaction_ids, repeat_payments)
+        )
+        return self.to_facts(rows.all())

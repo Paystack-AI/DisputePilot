@@ -13,6 +13,7 @@ from app.api.schemas.reconciliation import (
     ReconciliationView,
 )
 from app.api.schemas.response import ListSuccessResponse, SuccessResponse
+from app.api.services import trust_triggers
 from app.deps import (
     CurrentMerchant,
     ReconciliationServiceDep,
@@ -46,6 +47,10 @@ async def start_reconciliation(
     view, created = await reconciliation_service.start(curr_merchant, payload, uow)
     if not created:
         response.status_code = 200
+    # the change is committed: queue the merchant's trust recomputation
+    await trust_triggers.request_trust_update(
+        curr_merchant.id, trust_triggers.RECONCILIATION_UPDATED
+    )
     return SuccessResponse(data=view)
 
 
@@ -125,6 +130,10 @@ async def accept_match(
     decided: MatchDecisionResponse = await reconciliation_service.accept_match(
         curr_merchant, payload, uow
     )
+    # the change is committed: queue the merchant's trust recomputation
+    await trust_triggers.request_trust_update(
+        curr_merchant.id, trust_triggers.RECONCILIATION_UPDATED
+    )
     return SuccessResponse(data=decided)
 
 
@@ -148,6 +157,10 @@ async def reject_match(
     decided: MatchDecisionResponse = await reconciliation_service.reject_match(
         curr_merchant, payload, uow
     )
+    # the change is committed: queue the merchant's trust recomputation
+    await trust_triggers.request_trust_update(
+        curr_merchant.id, trust_triggers.RECONCILIATION_UPDATED
+    )
     return SuccessResponse(data=decided)
 
 
@@ -168,6 +181,10 @@ async def complete_reconciliation(
 ):
     session: ReconciliationSessionResponse = await reconciliation_service.complete(
         curr_merchant, uow
+    )
+    # the change is committed: queue the merchant's trust recomputation
+    await trust_triggers.request_trust_update(
+        curr_merchant.id, trust_triggers.RECONCILIATION_COMPLETED
     )
     return SuccessResponse(data=session)
 
