@@ -40,6 +40,8 @@ class DisputeListQuery(PageParams):
     status: list[DisputeStatus] | None = None
     category: list[DisputeCategory] | None = None
     urgency: list[Urgency] | None = None
+    # disputes on this customer's payments
+    customer_id: UUID | None = None
     sort: DisputeSort = "-created_at"
 
     _split_lists = field_validator("status", "category", "urgency", mode="before")(
