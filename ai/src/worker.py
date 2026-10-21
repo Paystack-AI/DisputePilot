@@ -8,7 +8,8 @@ import signal
 from redis.asyncio import Redis
 
 from src.config import get_settings
-from src.streams import REQUEST_HANDLERS, AiRequestConsumer, stop_task
+from src.handlers import build_handlers
+from src.streams import AiRequestConsumer, stop_task
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ async def main():
     settings = get_settings()
     redis: Redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
 
-    consumer = AiRequestConsumer(redis, REQUEST_HANDLERS, settings)
+    consumer = AiRequestConsumer(redis, build_handlers(redis, settings), settings)
     task: asyncio.Task = asyncio.create_task(consumer.run(), name="ai-request-consumer")
 
     stop = asyncio.Event()

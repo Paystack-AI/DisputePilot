@@ -2,21 +2,17 @@
 
 The AI worker. It reads jobs the backend adds to a Redis stream (`ai:stream:requests`), runs them, and adds results to `ai:stream:results` for the backend. Both sides use the same message fields: `event`, `job_id`, `version`, `payload` (JSON) and `created_at`.
 
-- `src/streams.py`: `AiRequestConsumer` (consumer group with acks, replay of unacked jobs, retries, and a `:dead` dead-letter stream), `AiResultPublisher`, and `REQUEST_HANDLERS`, the map from job event (e.g. `ai:dispute:classify`) to its handler.
-- `src/worker.py`: runs the consumer loop.
+- `src/streams.py`: `AiRequestConsumer` (consumer group with acks, replay of unacked jobs, retries, and a `:dead` dead-letter stream) and `AiResultPublisher`.
+- `src/handlers/`: one handler per job event and `build_handlers()`, the event -> handler map. Each handler validates the payload, calls the LLM client, publishes its `ai:result:*`, and publishes `ai:error` on failure.
+- `src/llm/`: the ordered provider chain (Gemini primary, Groq fallback), per-attempt timeouts, failover rules, the strict-JSON retry, and Redis-backed provider cooldowns.
+- `src/schemas/`: request, result and validated LLM-output models for every job.
+- `src/prompts/`: the system prompts and `load_prompt()`.
 
-A handler does the work and publishes its result with the job's `job_id`:
+## Providers
 
-```python
-async def classify(message: StreamMessage):
-    result = ...  # call the model with message.payload
-    await publisher.publish("ai:result:classified", message.job_id, result)
+Set `GEMINI_API_KEY` and/or `GROQ_API_KEY`; a provider with an empty key is skipped. `LLM_PROVIDER_ORDER` sets the chain (default `gemini,groq`: Gemini first, Groq on retryable failures or rate limits). Both providers are called over their REST APIs through `httpx`, so no provider SDK is needed.
 
-
-REQUEST_HANDLERS["ai:dispute:classify"] = classify
-```
-
-Jobs with no handler go to the dead-letter stream (`ai:stream:requests:dead`) instead of being retried forever.
+The default model ids target the free tiers (`gemini-3.8-flash` and `openai/gpt-oss-120b`). Moving to a paid plan or a different model is only an env change: set the `GEMINI_MODEL_*` / `GROQ_MODEL_*` values and restart the worker. See `.env.example` for the full list.
 
 ## Run the worker
 
