@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routers import (
     auth,
     customers,
+    dashboard,
     disputes,
     events,
     fulfillments,
@@ -35,3 +36,4 @@ router.include_router(events.router, tags=["Events"])
 router.include_router(webhooks.router, tags=["Webhooks"])
 router.include_router(disputes.router, tags=["Disputes"])
 router.include_router(trust.router, tags=["TrustLayer"])
+router.include_router(dashboard.router, tags=["Dashboard"])
