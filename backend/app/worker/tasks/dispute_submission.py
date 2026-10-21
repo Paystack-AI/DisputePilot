@@ -41,6 +41,7 @@ from app.worker.services.evidence_pdf import acceptance_html, evidence_html, ren
 from app.worker.services.notifications import email_merchant
 from app.worker.tasks.base import BaseTaskWithRetry
 from app.worker.tasks.transaction_sync import _http_client
+from app.worker.tasks.trust import request_trust_update_sync
 
 SETTINGS = get_settings()
 SECURITY = Security()
@@ -226,6 +227,8 @@ def submit_dispute(self, dispute_id: str):
         raise Reject(exc, requeue=False) from exc
 
     sentry_logger.info("Dispute {dispute_id} submitted to paystack", dispute_id=dispute_id)
+    # the response time signal moves
+    request_trust_update_sync(merchant.id, "dispute_submitted")
 
 
 @celery_app.task(base=BaseTaskWithRetry, bind=True)

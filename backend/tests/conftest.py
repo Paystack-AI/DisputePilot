@@ -32,6 +32,7 @@ from app.deps import (
 from app.main import app
 from app.worker.tasks.email import send_email
 from app.worker.tasks.transaction_sync import sync_transactions
+from app.worker.tasks.trust import recompute_trust
 
 # keep test keys away from the dev data in the default redis db
 TEST_REDIS_URL: str = get_settings().REDIS_URL.rsplit("/", 1)[0] + "/15"
@@ -268,6 +269,13 @@ def sync_events():
     """Capture the events a finished sync publishes instead of reaching redis"""
     with patch("app.worker.tasks.transaction_sync._publish_sync_events") as publish:
         yield publish
+
+
+@pytest.fixture(autouse=True)
+def queued_trust():
+    """Capture queued trust recomputations instead of publishing them to the broker"""
+    with patch.object(recompute_trust, "apply_async") as apply_async:
+        yield apply_async
 
 
 @pytest.fixture(autouse=True)

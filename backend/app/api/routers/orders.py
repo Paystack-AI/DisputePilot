@@ -13,6 +13,7 @@ from app.api.schemas.orders import (
     OrderUpdate,
 )
 from app.api.schemas.response import ListSuccessResponse, SuccessResponse
+from app.api.services import trust_triggers
 from app.deps import (
     CurrentMerchant,
     OrderManagementServiceDep,
@@ -103,6 +104,8 @@ async def update_order(
     order: OrderResponse = await order_management_service.update_order(
         curr_merchant, order_id, payload, uow
     )
+    # the change is committed: queue the merchant's trust recomputation
+    await trust_triggers.request_trust_update(curr_merchant.id, trust_triggers.ORDER_UPDATED)
     return SuccessResponse(data=order)
 
 
@@ -123,6 +126,8 @@ async def cancel_order(
     order_management_service: OrderManagementServiceDep,
 ):
     order: OrderResponse = await order_management_service.cancel_order(curr_merchant, order_id, uow)
+    # the change is committed: queue the merchant's trust recomputation
+    await trust_triggers.request_trust_update(curr_merchant.id, trust_triggers.ORDER_UPDATED)
     return SuccessResponse(data=order)
 
 
@@ -147,6 +152,8 @@ async def resolve_order(
     order: OrderResponse = await order_management_service.resolve_order(
         curr_merchant, order_id, payload, uow
     )
+    # the change is committed: queue the merchant's trust recomputation
+    await trust_triggers.request_trust_update(curr_merchant.id, trust_triggers.ORDER_UPDATED)
     return SuccessResponse(data=order)
 
 

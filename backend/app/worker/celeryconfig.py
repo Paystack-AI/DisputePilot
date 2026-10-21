@@ -32,6 +32,12 @@ beat_schedule: dict = {
         "schedule": crontab(hour=1, minute=0),
         "options": {"priority": 4},
     },
+    # trust profiles, so the 30 and 90 day windows move on without events (2am utc)
+    "daily-trust-recompute": {
+        "task": "app.worker.tasks.trust.schedule_trust_recomputes",
+        "schedule": crontab(hour=2, minute=0),
+        "options": {"priority": 3},
+    },
     # disputes for merchants without a working webhook
     "dispute-poll": {
         "task": "app.worker.tasks.disputes.schedule_dispute_polls",

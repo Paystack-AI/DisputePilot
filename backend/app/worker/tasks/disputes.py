@@ -24,6 +24,7 @@ from app.worker.services.dispute_alerts import announce, announce_deadline, hour
 from app.worker.services.disputes import DisputeIntake, DisputeIntakeService
 from app.worker.tasks.base import BaseTaskWithRetry
 from app.worker.tasks.transaction_sync import _http_client
+from app.worker.tasks.webhooks import _dispute_trust
 
 SECURITY = Security()
 SETTINGS = get_settings()
@@ -79,6 +80,7 @@ def poll_disputes(self, merchant_id: str) -> int:
                 # one commit per dispute: an alert never goes out for an unsaved record
                 session.commit()
                 announce(session, merchant, intake)
+                _dispute_trust(merchant.id, intake)
                 taken += 1
 
             for page in range(1, MAX_PAGES + 1):

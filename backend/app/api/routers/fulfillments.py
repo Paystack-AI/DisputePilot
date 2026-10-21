@@ -10,6 +10,7 @@ from app.api.schemas.fulfillments import (
     FulfillmentUpdate,
 )
 from app.api.schemas.response import ListSuccessResponse, SuccessResponse
+from app.api.services import trust_triggers
 from app.deps import (
     CurrentMerchant,
     FulfillmentLogServiceDep,
@@ -62,6 +63,8 @@ async def create_fulfillment(
     fulfillment: FulfillmentResponse = await fulfillment_log_service.create_fulfillment(
         curr_merchant, payload, uow, idempotency_key
     )
+    # the change is committed: queue the merchant's trust recomputation
+    await trust_triggers.request_trust_update(curr_merchant.id, trust_triggers.FULFILLMENT_LOGGED)
     return SuccessResponse(data=fulfillment)
 
 
@@ -104,4 +107,6 @@ async def update_fulfillment(
     fulfillment: FulfillmentResponse = await fulfillment_log_service.update_fulfillment(
         curr_merchant, fulfillment_id, payload, uow
     )
+    # the change is committed: queue the merchant's trust recomputation
+    await trust_triggers.request_trust_update(curr_merchant.id, trust_triggers.FULFILLMENT_LOGGED)
     return SuccessResponse(data=fulfillment)

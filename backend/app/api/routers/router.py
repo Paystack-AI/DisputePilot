@@ -12,6 +12,7 @@ from app.api.routers import (
     reconciliation,
     settings,
     transactions,
+    trust,
     uploads,
     webhooks,
 )
@@ -33,3 +34,4 @@ router.include_router(reconciliation.router, tags=["Reconciliation"])
 router.include_router(events.router, tags=["Events"])
 router.include_router(webhooks.router, tags=["Webhooks"])
 router.include_router(disputes.router, tags=["Disputes"])
+router.include_router(trust.router, tags=["TrustLayer"])

@@ -7,6 +7,7 @@ from sqlalchemy import (
     VARCHAR,
     DateTime,
     ForeignKey,
+    Index,
     PrimaryKeyConstraint,
     text,
 )
@@ -39,4 +40,7 @@ class TrustSnapshot(Base):
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
 
-    __table_args__ = (PrimaryKeyConstraint("id", name="trust_snapshots_pk"),)
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="trust_snapshots_pk"),
+        Index("trust_snapshots_merchant_created_idx", "merchant_id", "created_at"),
+    )
