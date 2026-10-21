@@ -256,13 +256,6 @@ class AiRequestConsumer:
         logger.error("Ai job %s moved to %s: %s", entry_id, self.dead_letter_stream, reason)
 
 
-# event -> handler for backend jobs; the processing functions are added with each ai task
-# (ai:dispute:classify, ai:dispute:generate-evidence, ai:dispute:score-quality,
-# ai:trust:explain, ai:trust:recommend, ai:trust:state-change). A handler does the work and
-# publishes its ai:result:* (or ai:error) with AiResultPublisher, using the job's job_id
-REQUEST_HANDLERS: dict[str, Handler] = {}
-
-
 async def stop_task(task: asyncio.Task | None):
     if task is None:
         return
