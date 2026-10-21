@@ -13,6 +13,7 @@ dist/
 coverage/
 .turbo/
 next-env.d.ts
+*.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -53,3 +54,4 @@ celerybeat-schedule*
 DisputePilot_Project_path*
 Prompt.txt
 ai-scaffold*
+Frontend-UI.txt
