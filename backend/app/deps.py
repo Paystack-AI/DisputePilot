@@ -9,10 +9,13 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.clients.minio import MinioStorage
+from app.api.models.admins import Admin
 from app.api.models.merchants import Merchant
 from app.api.repo.merchants import MerchantRepository
 from app.api.repo.redis import RedisRepository
 from app.api.repo.uow import UnitOfWorkRepository
+from app.api.services.admin import AdminService
+from app.api.services.admin_auth import AdminAuthService
 from app.api.services.auth import AuthService
 from app.api.services.customer_ledger import CustomerLedgerService
 from app.api.services.dashboard import DashboardService
@@ -29,7 +32,7 @@ from app.api.services.trust import TrustService
 from app.api.services.uploads import UploadService
 from app.api.services.webhooks import WebhookService
 from app.core.config import get_settings
-from app.core.exceptions import AuthenticationError
+from app.core.exceptions import AdminAuthenticationError, AuthenticationError
 from app.core.security import Security
 from app.database.session import get_session
 from app.limiter import _limiter_handler
@@ -162,8 +165,18 @@ async def get_webhook_service(security: SecurityDep) -> WebhookService:
     return WebhookService(security=security)
 
 
+async def get_admin_service() -> AdminService:
+    return AdminService()
+
+
+async def get_admin_auth_service(redis_repo: RedisRepo) -> AdminAuthService:
+    return AdminAuthService(redis_repo=redis_repo)
+
+
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 WebhookServiceDep = Annotated[WebhookService, Depends(get_webhook_service)]
+AdminServiceDep = Annotated[AdminService, Depends(get_admin_service)]
+AdminAuthServiceDep = Annotated[AdminAuthService, Depends(get_admin_auth_service)]
 DisputeServiceDep = Annotated[DisputeService, Depends(get_dispute_service)]
 TrustServiceDep = Annotated[TrustService, Depends(get_trust_service)]
 DashboardServiceDep = Annotated[DashboardService, Depends(get_dashboard_service)]
@@ -197,7 +210,7 @@ async def _decode_credentials(
     # raises TokenExpiredError for expired tokens
     payload: dict = await security.decode_token(token, key)
 
-    if not payload:
+    if not payload or payload.get("scope") == "admin":
         sentry_logger.error("Merchant not authenticated")
         raise AuthenticationError()
 
@@ -226,6 +239,41 @@ async def get_current_merchant(
 
 
 CurrentMerchant = Annotated[Merchant, Depends(get_current_merchant)]
+
+
+# ------------------------ Admin dependency -------------------------- #
+
+
+async def _decode_admin_credentials(
+    security: SecurityDep,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(bearer)],
+) -> dict:
+    """Admin tokens are signed like merchant tokens but carry scope=admin."""
+    if not credentials:
+        sentry_logger.error("Admin not authenticated")
+        raise AdminAuthenticationError()
+
+    payload: dict = await security.decode_token(
+        credentials.credentials, SETTINGS.ACCESS_TOKEN_SECRET_KEY
+    )
+    if not payload or payload.get("scope") != "admin":
+        sentry_logger.error("Admin not authenticated")
+        raise AdminAuthenticationError()
+    return payload
+
+
+AdminAccessTokenClaims = Annotated[dict, Depends(_decode_admin_credentials)]
+
+
+async def get_current_admin(
+    admin_auth_service: AdminAuthServiceDep,
+    admin_claims: AdminAccessTokenClaims,
+    uow: UnitOfWorkRepo,
+) -> Admin:
+    return await admin_auth_service.current_admin(admin_claims, uow)
+
+
+CurrentAdmin = Annotated[Admin, Depends(get_current_admin)]
 
 
 # ------------------------ Limiter -------------------------------- #
