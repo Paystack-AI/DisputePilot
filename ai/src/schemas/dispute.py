@@ -12,7 +12,8 @@ class ClassifyRequest(JobRequest):
     """Payload of ai:dispute:classify."""
 
     dispute_id: str
-    messages_body: str
+    # the bank's reason; the backend sends null when the dispute carried no message
+    messages_body: str | None = ""
     message_sender: str | None = None
     note: str | None = None
     paystack_category: str | None = None
@@ -45,8 +46,9 @@ class EvidenceRequest(JobRequest):
     """Payload of ai:dispute:generate-evidence."""
 
     dispute_id: str
-    category: DisputeCategory
-    submission_flow: SubmissionFlow
+    # set by the classify step; null only if a dispute reached this step unclassified
+    category: DisputeCategory | None = None
+    submission_flow: SubmissionFlow | None = None
     transaction: dict[str, Any]
     order: dict[str, Any] | None = None
     fulfillment: list[dict[str, Any]] | dict[str, Any] | None = None
@@ -84,7 +86,7 @@ class ScoreQualityRequest(JobRequest):
 
     dispute_id: str
     narrative: str
-    category: DisputeCategory
+    category: DisputeCategory | None = None
     available_evidence_items: list[str]
     evidence_items_referenced: list[str]
 

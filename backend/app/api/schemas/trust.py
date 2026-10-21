@@ -53,6 +53,9 @@ class TrustProfileResponse(BaseModel):
     last_computed_at: datetime | None
     # when the current state began
     stable_since: datetime | None
+    # the ai's plain-language reading of the state; null until it has answered
+    explanation: str | None
+    explained_at: datetime | None
 
 
 class TrustSettingsUpdate(AuthBase):
@@ -64,6 +67,21 @@ class TrustSettingsUpdate(AuthBase):
         if self.public_enabled is None and self.widget_enabled is None:
             raise ValueError("send public_enabled or widget_enabled")
         return self
+
+
+class TrustAction(BaseModel):
+    """One recommended action, written by the ai from the merchant's signals"""
+
+    action: str
+    impact_description: str
+    # the signal key it moves, or "sample" for actions that build the minimum sample
+    affected_signal: str
+
+
+class TrustActions(BaseModel):
+    actions: list[TrustAction]
+    # when the ai wrote them; null until it has answered
+    generated_at: datetime | None
 
 
 class TrustSignalsBreakdown(BaseModel):
@@ -96,6 +114,8 @@ class TrustHistoryPoint(BaseModel):
     internal_score: int | None
     reason: str
     signals: dict
+    # the ai's one-line account, for points where the state changed
+    summary: str | None
 
 
 class TrustStateChange(BaseModel):
@@ -103,6 +123,7 @@ class TrustStateChange(BaseModel):
     from_state: TrustState | None
     to_state: TrustState
     reason: str
+    summary: str | None
 
 
 class TrustHistory(BaseModel):

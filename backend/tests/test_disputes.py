@@ -288,6 +288,12 @@ class TestEvidenceChain:
         assert generate["event"] == dispute_ai.GENERATE
         assert generate["payload"]["category"] == "chargeback_no_value"
         assert generate["payload"]["transaction"]["amount"] == 4500000
+        assert generate["payload"]["reconciliationStatus"] == {
+            "status": "unmatched",
+            "tier": None,
+            "confidence": None,
+            "reconciled_at": None,
+        }
 
         await dispute_ai.on_generated(
             _result(
@@ -311,7 +317,8 @@ class TestEvidenceChain:
                 {
                     "disputeId": str(dispute_id),
                     "overallScore": 72,
-                    "dimensionScores": {"completeness": 70},
+                    # models may answer with fractions; the api shows whole numbers
+                    "dimensionScores": {"completeness": 70.4},
                     "suggestions": ["Add a delivery photo"],
                     "readyToSubmit": True,
                 },

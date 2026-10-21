@@ -9,6 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.api.clients.minio import create_minio_storage
 from app.api.clients.paystack import create_async_http_client
 from app.api.routers import router
+from app.api.services import trust_ai  # noqa: F401  registers the trust ai handlers
 from app.api.services.ai_streams import AI_RESULT_HANDLERS, AiResultConsumer, stop_task
 from app.api.services.dispute_ai import run_timeout_sweeps  # registers the ai handlers
 from app.core.config import get_settings

@@ -6,6 +6,7 @@ from app.api.schemas.response import SuccessResponse
 from app.api.schemas.trust import (
     PublicTrustBadge,
     PublicTrustPage,
+    TrustActions,
     TrustHistory,
     TrustHistoryQuery,
     TrustProfileResponse,
@@ -75,6 +76,22 @@ async def get_trust_signals(
     uow: UnitOfWorkRepo, curr_merchant: CurrentMerchant, trust_service: TrustServiceDep
 ):
     return SuccessResponse(data=await trust_service.signals(curr_merchant, uow))
+
+
+@router.get(
+    "/trust/actions",
+    status_code=200,
+    response_model=SuccessResponse[TrustActions],
+    description=(
+        "Recommended actions to improve the trust state, written by the ai from the signals "
+        "after each recomputation that changed something. Empty until it has answered"
+    ),
+    dependencies=[read_limiter],
+)
+async def get_trust_actions(
+    uow: UnitOfWorkRepo, curr_merchant: CurrentMerchant, trust_service: TrustServiceDep
+):
+    return SuccessResponse(data=await trust_service.actions(curr_merchant, uow))
 
 
 @router.get(

@@ -201,8 +201,9 @@ class EvidenceDocumentBuilder:
         return {str(f.id): f.object_name for f in files}
 
     @staticmethod
-    def ai_context(document: EvidenceDocument, dispute: Dispute) -> dict:
-        """The generate step's input package (spec 4.2 and 16.1)"""
+    def ai_context(document: EvidenceDocument, dispute: Dispute, transaction: Transaction) -> dict:
+        """The generate step's input package (spec 4.2 and 16.1). Amounts are in the
+        currency's minor unit, as everywhere in the api"""
         facts: dict = document.model_dump(
             mode="json",
             include={
@@ -226,4 +227,13 @@ class EvidenceDocumentBuilder:
             "supportingDocuments": facts["supporting_documents"],
             "evidenceStrategy": dispute.evidence_strategy,
             "specialInstructions": dispute.special_instructions,
+            # how the payment was matched to its order, for the narrative to cite
+            "reconciliationStatus": {
+                "status": transaction.reconciliation_status.value,
+                "tier": transaction.match_tier,
+                "confidence": transaction.match_confidence,
+                "reconciled_at": (
+                    transaction.reconciled_at.isoformat() if transaction.reconciled_at else None
+                ),
+            },
         }

@@ -272,6 +272,13 @@ def sync_events():
 
 
 @pytest.fixture(autouse=True)
+def trust_ai_jobs():
+    """Capture the trust jobs sent to the ai worker instead of writing to redis"""
+    with patch("app.worker.tasks.trust.publish_ai_job_sync") as publish:
+        yield publish
+
+
+@pytest.fixture(autouse=True)
 def queued_trust():
     """Capture queued trust recomputations instead of publishing them to the broker"""
     with patch.object(recompute_trust, "apply_async") as apply_async:

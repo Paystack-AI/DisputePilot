@@ -16,6 +16,8 @@ from app.api.repo.uow import UnitOfWorkRepository
 from app.api.schemas.trust import (
     PublicTrustBadge,
     PublicTrustPage,
+    TrustAction,
+    TrustActions,
     TrustHistory,
     TrustHistoryPoint,
     TrustProfileResponse,
@@ -204,6 +206,8 @@ class TrustService:
             public_url=self._public_url(profile),
             last_computed_at=profile.last_computed_at,
             stable_since=stable_since,
+            explanation=profile.explanation,
+            explained_at=profile.explained_at,
         )
 
     async def update_settings(
@@ -281,6 +285,7 @@ class TrustService:
                         from_state=previous,
                         to_state=snapshot.state,
                         reason=snapshot.reason,
+                        summary=snapshot.summary,
                     )
                 )
             previous = snapshot.state
@@ -293,10 +298,20 @@ class TrustService:
                     internal_score=s.internal_score,
                     reason=s.reason,
                     signals=s.signals,
+                    summary=s.summary,
                 )
                 for s in snapshots
             ],
             changes=changes,
+        )
+
+    async def actions(self, merchant: Merchant, uow: UnitOfWorkRepository) -> TrustActions:
+        """The ai's recommended actions from the last explanation"""
+        self._setup(uow)
+        profile, *_ = await self._profile(merchant)
+        return TrustActions(
+            actions=[TrustAction.model_validate(item) for item in profile.recommendations or []],
+            generated_at=profile.explained_at,
         )
 
     # ------------------------------ public ------------------------------ #
