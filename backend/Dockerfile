@@ -3,6 +3,7 @@ FROM python:3.12-slim
 # psycopg2 builds against libpq; weasyprint prints the evidence pdfs with pango
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    libc6-dev \
     libpq-dev \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
