@@ -1,3 +1,4 @@
+from app.api.models.admins import Admin
 from app.api.models.base import Base
 from app.api.models.customers import Customer
 from app.api.models.dispute_evidence_files import DisputeEvidenceFile
@@ -19,6 +20,7 @@ from app.api.models.webhook_events import WebhookEvent
 
 __all__ = [
     "Base",
+    "Admin",
     "Merchant",
     "Customer",
     "Order",

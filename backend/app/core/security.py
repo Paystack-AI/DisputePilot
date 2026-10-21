@@ -2,7 +2,7 @@ import base64
 import json
 from binascii import Error as binascii_error
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from authlib.integrations.starlette_client import OAuth
 from cryptography.fernet import Fernet
@@ -107,6 +107,28 @@ class Security:
             # accepted only while this session is active
             "sid": str(token_data.session_id),
             "usertype": token_data.user_type,
+        }
+
+        return self._encode_jwt(payload, self.SETTINGS.ACCESS_TOKEN_SECRET_KEY)
+
+    async def create_admin_access_token(
+        self, admin_id: UUID, session_id: UUID, expire_time: int | None = None
+    ) -> str:
+        """A short-lived operator token. scope keeps it out of merchant endpoints."""
+        if not expire_time:
+            expire_time: datetime = datetime.now(UTC) + timedelta(
+                minutes=self.SETTINGS.ACCESS_TOKEN_EXPIRE_TIME
+            )
+        else:
+            expire_time: datetime = datetime.now(UTC) + timedelta(minutes=expire_time)
+
+        payload: dict = {
+            "sub": str(admin_id),
+            "exp": expire_time,
+            "iat": datetime.now(UTC),
+            # the session key in redis; logout deletes it
+            "sid": str(session_id),
+            "scope": "admin",
         }
 
         return self._encode_jwt(payload, self.SETTINGS.ACCESS_TOKEN_SECRET_KEY)

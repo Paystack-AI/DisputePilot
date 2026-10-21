@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from app.api.schemas.response import Error, ErrorResponse
 from app.core.exceptions import (
     AccountDeactivatedError,
+    AdminAuthenticationError,
     AuthenticationError,
     CredentialError,
     CustomerEmailLockedError,
@@ -74,6 +75,10 @@ class ExceptionHandler:
         self.app.add_exception_handler(
             AuthenticationError,
             exception_handler(401, {"message": "Merchant not authenticated."}),
+        )
+        self.app.add_exception_handler(
+            AdminAuthenticationError,
+            exception_handler(401, {"message": "Admin not authenticated."}),
         )
         self.app.add_exception_handler(
             TokenExpiredError,

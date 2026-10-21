@@ -29,6 +29,13 @@ class AuthenticationError(AppException):
         super().__init__("TOKEN_INVALID")
 
 
+class AdminAuthenticationError(AppException):
+    """Admin endpoint called without a valid, active admin session."""
+
+    def __init__(self):
+        super().__init__("ADMIN_TOKEN_INVALID")
+
+
 class TokenExpiredError(AppException):
     """Token signature is valid but it has expired."""
 

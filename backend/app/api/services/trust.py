@@ -175,10 +175,14 @@ class TrustService:
         self._uow = uow
         self._repo = uow.repo(TrustRepository)
 
-    async def _profile(self, merchant: Merchant):
+    async def _profile(self, merchant: Merchant, create: bool = True):
+        """create=False is for readers who must not write (an admin viewing a merchant):
+        a merchant with no profile yet is a 404 instead"""
         found = await self._repo.profile_with_settings(merchant.id)
         if found:
             return found
+        if not create:
+            raise NotFoundError("Trust profile")
         # first visit: an empty profile now, the first computation queued
         await self._repo.ensure_profile(merchant.id)
         await self._uow.commit()
@@ -190,10 +194,12 @@ class TrustService:
         return f"{SETTINGS.FRONTEND_URL.rstrip('/')}/public/trust/{profile.public_token}"
 
     async def get_profile(
-        self, merchant: Merchant, uow: UnitOfWorkRepository
+        self, merchant: Merchant, uow: UnitOfWorkRepository, create: bool = True
     ) -> TrustProfileResponse:
         self._setup(uow)
-        profile, public_enabled, widget_enabled, stable_since = await self._profile(merchant)
+        profile, public_enabled, widget_enabled, stable_since = await self._profile(
+            merchant, create
+        )
         return TrustProfileResponse(
             state=profile.current_state,
             label=LABELS[profile.current_state],
@@ -239,9 +245,11 @@ class TrustService:
         )
         return await self.get_profile(merchant, uow)
 
-    async def signals(self, merchant: Merchant, uow: UnitOfWorkRepository) -> TrustSignalsBreakdown:
+    async def signals(
+        self, merchant: Merchant, uow: UnitOfWorkRepository, create: bool = True
+    ) -> TrustSignalsBreakdown:
         self._setup(uow)
-        profile, *_ = await self._profile(merchant)
+        profile, *_ = await self._profile(merchant, create)
         signals: list[TrustSignal] = signals_of(profile)
         next_state: TrustState | None = NEXT_STATE[profile.current_state]
         target: dict[str, float] = VERIFIED if next_state == TrustState.VERIFIED else BUILDING
@@ -305,10 +313,12 @@ class TrustService:
             changes=changes,
         )
 
-    async def actions(self, merchant: Merchant, uow: UnitOfWorkRepository) -> TrustActions:
+    async def actions(
+        self, merchant: Merchant, uow: UnitOfWorkRepository, create: bool = True
+    ) -> TrustActions:
         """The ai's recommended actions from the last explanation"""
         self._setup(uow)
-        profile, *_ = await self._profile(merchant)
+        profile, *_ = await self._profile(merchant, create)
         return TrustActions(
             actions=[TrustAction.model_validate(item) for item in profile.recommendations or []],
             generated_at=profile.explained_at,
