@@ -45,3 +45,7 @@ build/
 
 # --- redis ---
 dump.rdb
+
+# celery beat schedule (docker volume and local runs)
+beat_data/
+celerybeat-schedule*

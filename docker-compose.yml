@@ -1,0 +1,238 @@
+services:
+  disputepilot_postgres:
+    image: postgres:18-alpine
+    container_name: disputepilot_postgres
+    restart: always
+    volumes:
+      - disputepilot_postgres:/var/lib/postgresql
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_DB=disputepilot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d disputepilot -U postgres -p 5432"]
+      retries: 5
+      timeout: 10s
+      interval: 30s
+      start_period: 30s
+      start_interval: 5s
+
+  disputepilot_redis:
+    image: redis:8-alpine
+    container_name: disputepilot_redis
+    restart: always
+    volumes:
+      - disputepilot_redis:/data
+    ports:
+      - 6379:6379
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      retries: 5
+      timeout: 10s
+      interval: 30s
+      start_period: 30s
+      start_interval: 5s
+
+  disputepilot_broker:
+    image: rabbitmq:4.0-management-alpine
+    container_name: disputepilot_broker
+    restart: always
+    volumes:
+      - disputepilot_broker:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+      - RABBITMQ_DEFAULT_VHOST=vhost
+    ports:
+      - 5672:5672
+      - 15672:15672
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q check_running"]
+      retries: 5
+      timeout: 10s
+      interval: 30s
+      start_period: 30s
+      start_interval: 5s
+
+  # evidence photos and pdfs; console on 9001. The api creates the bucket on startup
+  disputepilot_minio:
+    image: minio/minio:latest
+    container_name: disputepilot_minio
+    restart: always
+    volumes:
+      - disputepilot_minio:/data
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+    command: ["server", "/data", "--console-address", ":9001"]
+    ports:
+      - 9000:9000
+      - 9001:9001
+    healthcheck:
+      test: ["CMD-SHELL", "mc ready local"]
+      retries: 5
+      timeout: 10s
+      interval: 30s
+      start_period: 30s
+      start_interval: 5s
+
+  disputepilot_migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: no
+    env_file: ./backend/.env
+    container_name: disputepilot_migrate
+    command: alembic upgrade head
+    depends_on:
+      disputepilot_postgres:
+        condition: service_healthy
+
+  disputepilot_declare_queues:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: no
+    env_file: ./backend/.env
+    container_name: disputepilot_declare_queues
+    command: python -m app.worker.declare_queues
+    depends_on:
+      disputepilot_broker:
+        condition: service_healthy
+
+  disputepilot_api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    container_name: disputepilot_api
+    volumes:
+      - ./backend:/backend
+      - /backend/.venv
+    env_file: ./backend/.env
+    ports:
+      - 8000:8000
+    command:
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\"",
+        ]
+      retries: 5
+      timeout: 10s
+      interval: 30s
+      start_period: 30s
+      start_interval: 5s
+    depends_on:
+      disputepilot_postgres:
+        condition: service_healthy
+      disputepilot_broker:
+        condition: service_healthy
+      disputepilot_redis:
+        condition: service_healthy
+      disputepilot_minio:
+        condition: service_healthy
+      disputepilot_migrate:
+        condition: service_completed_successfully
+
+  disputepilot_worker_celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    container_name: disputepilot_worker_celery
+    volumes:
+      - ./backend:/backend
+      - /backend/.venv
+    env_file: ./backend/.env
+    command:
+      [
+        "celery", "-A", "app.worker.celery_app", "worker",
+        "-Q", "disputepilot.celery", "-P", "gevent", "-l", "info",
+      ]
+    depends_on:
+      disputepilot_postgres:
+        condition: service_healthy
+      disputepilot_broker:
+        condition: service_healthy
+      disputepilot_redis:
+        condition: service_healthy
+      disputepilot_minio:
+        condition: service_healthy
+      disputepilot_migrate:
+        condition: service_completed_successfully
+      disputepilot_declare_queues:
+        condition: service_completed_successfully
+
+  disputepilot_beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    container_name: disputepilot_beat
+    volumes:
+      - ./backend:/backend
+      - /backend/.venv
+      - beat_data:/backend/beat_data
+    env_file: ./backend/.env
+    command:
+      [
+        "celery", "-A", "app.worker.celery_app", "beat",
+        "-s", "/backend/beat_data/celerybeat-schedule", "-l", "info",
+      ]
+    depends_on:
+      disputepilot_postgres:
+        condition: service_healthy
+      disputepilot_broker:
+        condition: service_healthy
+      disputepilot_redis:
+        condition: service_healthy
+      disputepilot_migrate:
+        condition: service_completed_successfully
+      disputepilot_declare_queues:
+        condition: service_completed_successfully
+
+  # the ai worker: reads jobs from the backend over the redis streams
+  disputepilot_ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    restart: always
+    container_name: disputepilot_ai
+    volumes:
+      - ./ai:/ai
+    # optional: the defaults point at localhost, so set REDIS_URL for docker
+    env_file:
+      - path: ./ai/.env
+        required: false
+    environment:
+      - REDIS_URL=${AI_REDIS_URL:-redis://disputepilot_redis:6379/0}
+    depends_on:
+      disputepilot_redis:
+        condition: service_healthy
+
+  # a public url for the paystack webhook (set BACKEND_URL to it)
+  disputepilot_ngrok:
+    image: ngrok/ngrok:latest
+    container_name: disputepilot_ngrok
+    restart: always
+    env_file: ./backend/.env
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
+    command: ["http", "disputepilot_api:8000", "--url", "${NGROK_URL}"]
+    ports:
+      - 4040:4040
+    depends_on:
+      - disputepilot_api
+
+volumes:
+  disputepilot_postgres:
+  disputepilot_redis:
+  disputepilot_broker:
+  disputepilot_minio:
+  beat_data:
