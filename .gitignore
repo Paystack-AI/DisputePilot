@@ -49,3 +49,7 @@ dump.rdb
 # celery beat schedule (docker volume and local runs)
 beat_data/
 celerybeat-schedule*
+
+DisputePilot_Project_path*
+Prompt.txt
+ai-scaffold*
