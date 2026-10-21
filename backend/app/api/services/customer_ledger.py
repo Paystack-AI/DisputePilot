@@ -19,11 +19,14 @@ from app.api.schemas.customers import (
     CustomerStats,
     CustomerSummary,
     CustomerUpdate,
+    LedgerEntry,
 )
+from app.api.schemas.disputes import DisputeListQuery, DisputeSummary
 from app.api.schemas.orders import OrderListQuery, OrderResponse
 from app.api.schemas.pagination import PageMeta, PageParams
 from app.api.schemas.transactions import TransactionSummary
 from app.api.services.customers import CustomerService, is_merchant_email
+from app.api.services.disputes import DisputeService
 from app.api.services.order_management import order_response
 from app.core.exceptions import CustomerEmailLockedError, CustomerExistsError, NotFoundError
 
@@ -288,3 +291,55 @@ class CustomerLedgerService:
             for order, order_customer, is_linked in rows
         ]
         return orders, PageMeta.build(params, total)
+
+    async def list_customer_disputes(
+        self,
+        curr_merchant: Merchant,
+        customer_id: UUID,
+        params: PageParams,
+        uow: UnitOfWorkRepository,
+        dispute_service: DisputeService,
+    ) -> tuple[list[DisputeSummary], PageMeta]:
+        """Disputes on this customer's payments, newest first, in the dispute list's shape"""
+        await self._uow_customers(uow)
+
+        query = DisputeListQuery(page=params.page, limit=params.limit, customer_id=customer_id)
+        disputes, meta = await dispute_service.list_disputes(curr_merchant, query, uow)
+
+        # rows are already scoped to the merchant, so only an empty page needs to tell an
+        # unknown customer (404) from one without disputes
+        if not disputes:
+            await self._get_customer(curr_merchant.id, customer_id)
+        return disputes, meta
+
+    async def customer_ledger(
+        self,
+        curr_merchant: Merchant,
+        customer_id: UUID,
+        params: PageParams,
+        uow: UnitOfWorkRepository,
+    ) -> tuple[list[LedgerEntry], PageMeta]:
+        """Payments, orders, disputes and fulfillments as one timeline, newest first"""
+        await self._uow_customers(uow)
+
+        rows, total = await self._uow.repo(CustomerRepository).ledger(
+            curr_merchant.id, customer_id, params
+        )
+        if not rows:
+            await self._get_customer(curr_merchant.id, customer_id)
+
+        entries: list[LedgerEntry] = [
+            LedgerEntry(
+                kind=row.kind,
+                occurred_at=row.occurred_at,
+                id=row.id,
+                reference=row.reference,
+                amount=row.amount,
+                currency=row.currency,
+                status=row.status,
+                order_id=row.order_id,
+                transaction_id=row.transaction_id,
+            )
+            for row in rows
+        ]
+        return entries, PageMeta.build(params, total)

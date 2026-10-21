@@ -328,6 +328,11 @@ class DisputeRepository(BaseRepository[BaseModel, Dispute]):
             conditions.append(
                 or_(*(self._urgency_condition(urgency, now) for urgency in query.urgency))
             )
+        if query.customer_id:
+            # the payment's customer, else its order's (as the list shows)
+            conditions.append(
+                func.coalesce(Transaction.customer_id, Order.customer_id) == query.customer_id
+            )
 
         column = Dispute.due_at if query.sort.lstrip("-") == "due_at" else Dispute.created_at
         order_by = (
@@ -355,9 +360,15 @@ class DisputeRepository(BaseRepository[BaseModel, Dispute]):
             .order_by(*order_by)
         )
 
-        rows, total = await self._paginate(
-            stmt, select(func.count(Dispute.id)).where(*conditions), query.page, query.limit
-        )
+        count: Select = select(func.count(Dispute.id)).where(*conditions)
+        if query.customer_id:
+            count = self._joined(
+                select(func.count(Dispute.id)).join(
+                    Transaction, Transaction.id == Dispute.transaction_id
+                )
+            ).where(*conditions)
+
+        rows, total = await self._paginate(stmt, count, query.page, query.limit)
         return rows, total
 
     async def fulfillments(self, transaction: Transaction) -> list[Fulfillment]:

@@ -144,3 +144,20 @@ class CustomerRef(BaseModel):
     name: str | None
     email: str | None
     is_shared: bool
+
+
+class LedgerEntry(BaseModel):
+    """One record in a customer's ledger"""
+
+    kind: Literal["payment", "order", "dispute", "fulfillment"]
+    occurred_at: datetime
+    id: UUID
+    # paystack reference, order number, paystack dispute id or tracking number
+    reference: str | None
+    # null for fulfillments
+    amount: int | None
+    currency: str | None
+    # payment, order or dispute status; the fulfillment's type
+    status: str
+    order_id: UUID | None
+    transaction_id: UUID | None

@@ -1,8 +1,23 @@
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Select, and_, exists, func, or_, select, true
+from sqlalchemy import (
+    Row,
+    Select,
+    Text,
+    and_,
+    cast,
+    exists,
+    func,
+    literal,
+    null,
+    or_,
+    select,
+    true,
+    union_all,
+)
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import aliased
 
 from app.api.models.customers import Customer
 from app.api.models.disputes import Dispute
@@ -12,6 +27,7 @@ from app.api.models.orders import Order
 from app.api.models.transactions import Transaction
 from app.api.repo.base import LIKE_ESCAPE, BaseRepository, contains_pattern
 from app.api.schemas.customers import CustomerInDB, CustomerListQuery
+from app.api.schemas.pagination import PageParams
 
 _SUCCESS = Transaction.status == TransactionStatus.SUCCESS
 _RECONCILED = Transaction.reconciliation_status.in_(
@@ -213,3 +229,92 @@ class CustomerRepository(BaseRepository[CustomerInDB, Customer]):
             "dispute_count": row.dispute_count,
             "order_count": row.order_count,
         }
+
+    async def ledger(
+        self, merchant_id: UUID, customer_id: UUID, params: PageParams
+    ) -> tuple[list[Row], int]:
+        """The customer's payments, orders, disputes and fulfillments as one timeline,
+        newest first, in one query. Each row: kind, occurred_at, id, reference, amount,
+        currency, status, order_id, transaction_id (plus the page's total)"""
+        payment_customer = func.coalesce(Transaction.customer_id, Order.customer_id)
+        payment_of_order = aliased(Order)
+
+        def text(column):
+            return cast(column, Text)
+
+        payments = (
+            select(
+                literal("payment").label("kind"),
+                func.coalesce(Transaction.paid_at, Transaction.paystack_created_at).label(
+                    "occurred_at"
+                ),
+                Transaction.id.label("id"),
+                Transaction.paystack_reference.label("reference"),
+                Transaction.amount.label("amount"),
+                text(Transaction.currency).label("currency"),
+                text(Transaction.status).label("status"),
+                Transaction.order_id.label("order_id"),
+                Transaction.id.label("transaction_id"),
+            )
+            .outerjoin(Order, Order.id == Transaction.order_id)
+            .where(Transaction.merchant_id == merchant_id, payment_customer == customer_id)
+        )
+        orders = select(
+            literal("order"),
+            Order.created_at,
+            Order.id,
+            Order.order_number,
+            Order.amount,
+            text(Order.currency),
+            text(Order.status),
+            Order.id,
+            null(),
+        ).where(Order.merchant_id == merchant_id, Order.customer_id == customer_id)
+        disputes = (
+            select(
+                literal("dispute"),
+                Dispute.created_at,
+                Dispute.id,
+                text(Dispute.paystack_dispute_id),
+                Dispute.amount,
+                text(Dispute.currency),
+                text(Dispute.status),
+                Transaction.order_id,
+                Transaction.id,
+            )
+            .join(Transaction, Transaction.id == Dispute.transaction_id)
+            .outerjoin(Order, Order.id == Transaction.order_id)
+            .where(Dispute.merchant_id == merchant_id, payment_customer == customer_id)
+        )
+        fulfillments = (
+            select(
+                literal("fulfillment"),
+                Fulfillment.delivery_date,
+                Fulfillment.id,
+                Fulfillment.tracking_number,
+                null(),
+                null(),
+                text(Fulfillment.type),
+                Fulfillment.order_id,
+                Fulfillment.transaction_id,
+            )
+            .join(payment_of_order, payment_of_order.id == Fulfillment.order_id)
+            .outerjoin(Transaction, Transaction.id == Fulfillment.transaction_id)
+            .where(
+                Fulfillment.merchant_id == merchant_id,
+                # the order's customer, or the payment's when the order has none
+                or_(
+                    payment_of_order.customer_id == customer_id,
+                    Transaction.customer_id == customer_id,
+                ),
+            )
+        )
+
+        timeline = union_all(payments, orders, disputes, fulfillments).subquery("ledger")
+        rows, total = await self._paginate(
+            select(timeline).order_by(timeline.c.occurred_at.desc(), timeline.c.id.desc()),
+            select(func.count()).select_from(timeline),
+            params.page,
+            params.limit,
+        )
+        return rows, total

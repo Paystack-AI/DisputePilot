@@ -9,7 +9,9 @@ from app.api.schemas.customers import (
     CustomerResponse,
     CustomerSummary,
     CustomerUpdate,
+    LedgerEntry,
 )
+from app.api.schemas.disputes import DisputeSummary
 from app.api.schemas.orders import OrderResponse
 from app.api.schemas.pagination import PageParams
 from app.api.schemas.response import ListSuccessResponse, SuccessResponse
@@ -17,6 +19,7 @@ from app.api.schemas.transactions import TransactionSummary
 from app.deps import (
     CurrentMerchant,
     CustomerLedgerServiceDep,
+    DisputeServiceDep,
     UnitOfWorkRepo,
     read_limiter,
     write_limiter,
@@ -147,3 +150,47 @@ async def list_customer_orders(
         curr_merchant, customer_id, params, uow
     )
     return ListSuccessResponse(data=orders, meta=meta)
+
+
+@router.get(
+    "/customers/{customer_id}/disputes",
+    status_code=200,
+    response_model=ListSuccessResponse[DisputeSummary],
+    description="Disputes on this customer's payments, newest first",
+    dependencies=[read_limiter],
+)
+async def list_customer_disputes(
+    uow: UnitOfWorkRepo,
+    curr_merchant: CurrentMerchant,
+    customer_id: UUID,
+    params: Annotated[PageParams, Query()],
+    customer_ledger_service: CustomerLedgerServiceDep,
+    dispute_service: DisputeServiceDep,
+):
+    disputes, meta = await customer_ledger_service.list_customer_disputes(
+        curr_merchant, customer_id, params, uow, dispute_service
+    )
+    return ListSuccessResponse(data=disputes, meta=meta)
+
+
+@router.get(
+    "/customers/{customer_id}/ledger",
+    status_code=200,
+    response_model=ListSuccessResponse[LedgerEntry],
+    description=(
+        "The customer's full ledger: payments, orders, disputes and fulfillments as one "
+        "timeline, newest first"
+    ),
+    dependencies=[read_limiter],
+)
+async def customer_ledger(
+    uow: UnitOfWorkRepo,
+    curr_merchant: CurrentMerchant,
+    customer_id: UUID,
+    params: Annotated[PageParams, Query()],
+    customer_ledger_service: CustomerLedgerServiceDep,
+):
+    entries, meta = await customer_ledger_service.customer_ledger(
+        curr_merchant, customer_id, params, uow
+    )
+    return ListSuccessResponse(data=entries, meta=meta)
