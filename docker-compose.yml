@@ -59,7 +59,7 @@ services:
 
   # evidence photos and pdfs; console on 9001. The api creates the bucket on startup
   disputepilot_minio:
-    image: minio/minio:latest
+    image: pgsty/silo:latest
     container_name: disputepilot_minio
     restart: always
     volumes:
