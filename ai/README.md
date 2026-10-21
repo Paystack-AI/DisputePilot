@@ -14,6 +14,19 @@ Set `GEMINI_API_KEY` and/or `GROQ_API_KEY`; a provider with an empty key is skip
 
 The default model ids target the free tiers (`gemini-3.8-flash` and `openai/gpt-oss-120b`). Moving to a paid plan or a different model is only an env change: set the `GEMINI_MODEL_*` / `GROQ_MODEL_*` values and restart the worker. See `.env.example` for the full list.
 
+## Contract with the backend
+
+| Job (backend -> ai) | Prompt | Result (ai -> backend) | Backend handler |
+|---|---|---|---|
+| `ai:dispute:classify` | `classifier.txt` | `ai:result:classified` | `dispute_ai.on_classified` |
+| `ai:dispute:generate-evidence` | `evidence.txt` | `ai:result:evidence-generated` | `dispute_ai.on_generated` |
+| `ai:dispute:score-quality` | `scorer.txt` | `ai:result:quality-scored` | `dispute_ai.on_scored` |
+| `ai:trust:explain` | `trust_explainer.txt` | `ai:result:trust-explained` | `trust_ai.on_trust_explained` |
+| `ai:trust:recommend` | `trust_recommender.txt` | `ai:result:trust-explained` | `trust_ai.on_trust_explained` |
+| `ai:trust:state-change` | `trust_state_change.txt` | `ai:result:state-change-summarized` | `trust_ai.on_state_change_summarized` |
+
+Any failure is published as `ai:error`; the backend falls back to its templates for disputes. Amounts in job payloads are in the currency's minor unit (kobo). `tests/test_contract.py` holds payloads shaped exactly as the backend sends them: change both sides together.
+
 ## Run the worker
 
 ```bash

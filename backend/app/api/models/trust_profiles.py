@@ -9,11 +9,13 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     PrimaryKeyConstraint,
+    Text,
     text,
 )
 from sqlalchemy import (
     Enum as PgEnum,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.api.models.base import Base
@@ -45,6 +47,13 @@ class TrustProfile(Base):
     payments_30d: Mapped[int | None] = mapped_column(INTEGER)
     days_on_platform: Mapped[int | None] = mapped_column(INTEGER)
     public_token: Mapped[str] = mapped_column(VARCHAR(64), unique=True)
+    # the ai's plain-language explanation of the state, and its recommended actions
+    # ([{action, impact_description, affected_signal}]); null until the ai answered
+    explanation: Mapped[str | None] = mapped_column(Text)
+    recommendations: Mapped[list | None] = mapped_column(JSONB)
+    explained_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # the explain job in flight; an answer to an older one is ignored
+    explain_job_id: Mapped[str | None] = mapped_column(VARCHAR(64))
     last_computed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)

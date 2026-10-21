@@ -320,3 +320,9 @@ class TrustRepository(BaseRepository[BaseModel, TrustProfile]):
             .where(MerchantSettings.merchant_id == merchant_id)
             .with_for_update()
         )
+
+    async def profile_for_update(self, merchant_id: UUID) -> TrustProfile | None:
+        return await self.get_record(for_update=True, merchant_id=merchant_id)
+
+    async def snapshot_for_update(self, snapshot_id: UUID) -> TrustSnapshot | None:
+        return await self._async_session.get(TrustSnapshot, snapshot_id, with_for_update=True)

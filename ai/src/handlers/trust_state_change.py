@@ -26,7 +26,7 @@ async def handle_trust_state_change(
         )
         output: TrustStateChangeOutput = await client.complete(
             LLMTask.TRUST_STATE_CHANGE,
-            load_prompt("trust_explainer"),
+            load_prompt("trust_state_change"),
             input_prompt("Summarize this trust state change in one sentence.", request),
             TrustStateChangeOutput,
         )

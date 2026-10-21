@@ -115,6 +115,10 @@ class SyncStreamRepository:
     def __init__(self, redis: SyncRedis):
         self._redis = redis
 
+    def add(self, key: str, fields: dict, maxlen: int) -> str:
+        """Appends an entry, trimming the stream to about maxlen; returns its id"""
+        return self._redis.xadd(key, fields, maxlen=maxlen, approximate=True)
+
     def add_expiring(self, key: str, fields: dict, maxlen: int, ttl: int) -> str:
         with self._redis.pipeline(transaction=True) as pipe:
             pipe.xadd(key, fields, maxlen=maxlen, approximate=True)

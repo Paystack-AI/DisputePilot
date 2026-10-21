@@ -4,7 +4,7 @@ or the internal score changes."""
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import sentry_sdk.logger as sentry_logger
 from sqlalchemy.orm import Session
@@ -15,14 +15,41 @@ from app.api.models.trust_snapshots import TrustSnapshot
 from app.api.repo.trust import SyncTrustRepository
 from app.api.services.readiness import REPEAT_CUSTOMER_PAYMENTS, ReadinessFacts, score_readiness
 from app.api.services.trust_policy import (
+    BUILDING,
     DISPUTE_DAYS,
     FULFILLMENT_DAYS,
+    NEW_BELOW_DAYS,
+    NEW_BELOW_PAYMENTS,
     READINESS_DAYS,
     RECONCILIATION_DAYS,
+    REVIEW,
+    VERIFIED,
+    VERIFIED_MIN_PAYMENTS,
     TrustSignals,
     score_for,
     state_for,
 )
+
+# backend -> ai jobs for trust (the ai worker's handlers of the same names)
+TRUST_EXPLAIN: str = "ai:trust:explain"
+TRUST_STATE_CHANGE: str = "ai:trust:state-change"
+
+# profile column -> the signal key the ai (and the api) use
+SIGNAL_COLUMNS: dict[str, str] = {
+    "reconciliation_rate": "reconciliation_rate",
+    "fulfillment_rate": "fulfillment_rate",
+    "dispute_rate": "dispute_rate",
+    "dispute_win_rate": "dispute_win_rate",
+    "avg_response_time": "avg_response_time_pct",
+    "evidence_readiness": "evidence_readiness_avg",
+}
+
+
+@dataclass(frozen=True)
+class AiJob:
+    event: str
+    job_id: str
+    payload: dict
 
 
 @dataclass(frozen=True)
@@ -33,6 +60,41 @@ class TrustOutcome:
     previous_score: int | None
     # a snapshot was written: the state or the score moved (or it is the first run)
     changed: bool
+    # to send once committed: the explanation, and a summary of a state change
+    ai_jobs: tuple[AiJob, ...] = ()
+
+
+def _rounded(value: float | None) -> float | None:
+    return round(value, 1) if value is not None else None
+
+
+def _profile_signals(profile: TrustProfile) -> dict[str, float | None]:
+    return {key: _rounded(getattr(profile, column)) for key, column in SIGNAL_COLUMNS.items()}
+
+
+def _policy_thresholds() -> dict:
+    """The thresholds each state requires, for the ai to quote (never to decide with)"""
+    return {
+        "verified": {
+            **{key: f"at least {value:g}%" for key, value in VERIFIED.items()},
+            "dispute_rate": f"at most {VERIFIED['dispute_rate']:g}%",
+            "dispute_win_rate": f"at least {VERIFIED['dispute_win_rate']:g}% (or none resolved)",
+            "payments_30d": f"at least {VERIFIED_MIN_PAYMENTS}",
+        },
+        "building": {
+            **{key: f"at least {value:g}%" for key, value in BUILDING.items()},
+            "dispute_rate": f"at most {BUILDING['dispute_rate']:g}%",
+        },
+        "review_when_any": {
+            "dispute_rate": f"above {REVIEW['dispute_rate']:g}%",
+            "fulfillment_rate": f"below {REVIEW['fulfillment_rate']:g}%",
+            "reconciliation_rate": f"below {REVIEW['reconciliation_rate']:g}%",
+        },
+        "minimum_sample": {
+            "payments_30d": f"at least {NEW_BELOW_PAYMENTS}",
+            "days_on_platform": f"at least {NEW_BELOW_DAYS}",
+        },
+    }
 
 
 def _percent(part: int, whole: int) -> float | None:
@@ -81,6 +143,11 @@ def recompute_trust_profile(session: Session, merchant_id: UUID, reason: str) ->
     first_run: bool = profile.last_computed_at is None
     previous_state: TrustState | None = None if first_run else profile.current_state
     previous_score: int | None = profile.internal_score
+    previous_signals: dict[str, float | None] = _profile_signals(profile)
+    previous_sample: dict[str, int | None] = {
+        "payments_30d": profile.payments_30d,
+        "days_on_platform": profile.days_on_platform,
+    }
     changed: bool = first_run or state != previous_state or score != previous_score
 
     profile.current_state = state
@@ -95,8 +162,9 @@ def recompute_trust_profile(session: Session, merchant_id: UUID, reason: str) ->
     profile.days_on_platform = signals.days_on_platform
     profile.last_computed_at = now
 
+    jobs: list[AiJob] = []
     if changed:
-        repo.add_snapshot(
+        snapshot: TrustSnapshot = repo.add_snapshot(
             TrustSnapshot(
                 merchant_id=merchant_id,
                 state=state,
@@ -106,6 +174,52 @@ def recompute_trust_profile(session: Session, merchant_id: UUID, reason: str) ->
                 created_at=now,
             )
         )
+        session.flush()
+
+        # a fresh explanation of the new profile; an answer to an older job is ignored
+        explain_id: str = str(uuid4())
+        profile.explain_job_id = explain_id
+        sample: dict[str, int] = {
+            "payments_30d": signals.payments_30d,
+            "days_on_platform": signals.days_on_platform,
+        }
+        jobs.append(
+            AiJob(
+                TRUST_EXPLAIN,
+                explain_id,
+                {
+                    "merchantId": str(merchant_id),
+                    "currentState": state.value,
+                    "signals": _profile_signals(profile),
+                    "sample": sample,
+                    "policyThresholds": _policy_thresholds(),
+                },
+            )
+        )
+
+        # the state itself moved: a one-line account for the history (keyed by snapshot)
+        if previous_state is not None and state != previous_state:
+            current: dict[str, float | None] = _profile_signals(profile)
+            diff: dict[str, dict] = {
+                key: {"before": previous_signals[key], "after": value}
+                for key, value in current.items()
+                if previous_signals[key] != value
+            }
+            for key, value in sample.items():
+                if previous_sample[key] != value:
+                    diff[key] = {"before": previous_sample[key], "after": value}
+            jobs.append(
+                AiJob(
+                    TRUST_STATE_CHANGE,
+                    str(snapshot.id),
+                    {
+                        "merchantId": str(merchant_id),
+                        "previousState": previous_state.value,
+                        "newState": state.value,
+                        "signalDiff": diff,
+                    },
+                )
+            )
     session.commit()
 
     if changed:
@@ -117,4 +231,4 @@ def recompute_trust_profile(session: Session, merchant_id: UUID, reason: str) ->
             score=score,
             reason=reason,
         )
-    return TrustOutcome(state, score, previous_state, previous_score, changed)
+    return TrustOutcome(state, score, previous_state, previous_score, changed, tuple(jobs))

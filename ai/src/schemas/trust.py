@@ -23,7 +23,10 @@ class TrustExplainRequest(JobRequest):
 
     merchant_id: str
     current_state: TrustState
-    signals: dict[str, float]
+    # null when there is nothing to measure yet (e.g. no resolved disputes)
+    signals: dict[str, float | None]
+    # payments_30d and days_on_platform: below the minimum the state is new
+    sample: dict[str, int] | None = None
     policy_thresholds: dict[str, Any]
 
 

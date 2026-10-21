@@ -21,7 +21,7 @@ async def handle_trust_recommend(
         request = TrustRecommendRequest.model_validate({**message.payload, "jobId": message.job_id})
         output: TrustRecommendOutput = await client.complete(
             LLMTask.TRUST_RECOMMEND,
-            load_prompt("trust_explainer"),
+            load_prompt("trust_recommender"),
             input_prompt(
                 "Recommend the most impactful actions the merchant can take next.",
                 request,

@@ -118,7 +118,7 @@ class EvidenceChain:
         context: EvidenceContext = await self._context(dispute)
         document: EvidenceDocument = self._builder.build(merchant, context)
         if step == EvidenceStep.GENERATE:
-            return self._builder.ai_context(document, dispute)
+            return self._builder.ai_context(document, dispute, context.transaction)
         return {
             "disputeId": str(dispute.id),
             "narrative": dispute.evidence_narrative,
@@ -264,7 +264,16 @@ class EvidenceChain:
             dispute.evidence_suggestions = suggestions if isinstance(suggestions, list) else []
             dimensions = payload.get("dimensionScores")
             dispute.evidence_quality = {
-                "dimension_scores": dimensions if isinstance(dimensions, dict) else None,
+                # whole numbers, as the api shows them (models may send 72.5)
+                "dimension_scores": (
+                    {
+                        key: round(value)
+                        for key, value in dimensions.items()
+                        if isinstance(value, int | float)
+                    }
+                    if isinstance(dimensions, dict)
+                    else None
+                ),
                 "ready_to_submit": payload.get("readyToSubmit"),
             }
         await self.finish(merchant, dispute)

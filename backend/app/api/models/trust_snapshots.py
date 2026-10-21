@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     PrimaryKeyConstraint,
+    Text,
     text,
 )
 from sqlalchemy import (
@@ -36,6 +37,8 @@ class TrustSnapshot(Base):
     internal_score: Mapped[int | None] = mapped_column(INTEGER)
     signals: Mapped[dict] = mapped_column(JSONB)
     reason: Mapped[str] = mapped_column(VARCHAR(255))
+    # the ai's one-line account of a state change; null for score-only snapshots
+    summary: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

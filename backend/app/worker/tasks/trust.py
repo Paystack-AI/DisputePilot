@@ -7,7 +7,8 @@ from celery.exceptions import Reject
 from sqlalchemy.exc import OperationalError
 
 from app.api.repo.trust import SyncTrustRepository
-from app.database.session import sync_session
+from app.api.services.ai_streams import publish_ai_job_sync
+from app.database.session import sync_redis_client, sync_session
 from app.worker.celery_app import celery_app
 from app.worker.services.dispute_alerts import publish
 from app.worker.services.trust import TrustOutcome, recompute_trust_profile
@@ -42,6 +43,7 @@ def recompute_trust(self, merchant_id: str, reason: str, requested_at: str | Non
             raise self.retry(exc=exc, countdown=self._backoff_countdown()) from exc
         raise Reject(exc, requeue=False) from exc
 
+    _send_ai_jobs(merchant_id, outcome)
     if outcome.changed:
         publish(
             merchant_id,
@@ -53,6 +55,20 @@ def recompute_trust(self, merchant_id: str, reason: str, requested_at: str | Non
                 "reason": reason,
             },
         )
+
+
+def _send_ai_jobs(merchant_id: str, outcome: TrustOutcome):
+    """The explanation and state change summary; best effort, the profile is saved"""
+    for job in outcome.ai_jobs:
+        try:
+            publish_ai_job_sync(sync_redis_client, job.event, job.payload, job.job_id)
+        except Exception as exc:
+            sentry_sdk.capture_exception(exc)
+            sentry_logger.error(
+                "{event} could not be sent for merchant {merchant_id}",
+                event=job.event,
+                merchant_id=merchant_id,
+            )
 
 
 @celery_app.task

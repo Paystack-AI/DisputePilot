@@ -19,9 +19,10 @@ from time import monotonic
 
 import sentry_sdk
 import sentry_sdk.logger as sentry_logger
+from redis import Redis as SyncRedis
 from redis.asyncio import Redis
 
-from app.api.repo.streams import StreamRepository
+from app.api.repo.streams import StreamRepository, SyncStreamRepository
 from app.core.config import get_settings
 
 SETTINGS = get_settings()
@@ -44,6 +45,27 @@ class StreamMessage:
 Handler = Callable[[StreamMessage], Awaitable[None]]
 
 
+def _envelope(event: str, job_id: str, payload: dict) -> dict:
+    return {
+        "event": event,
+        "job_id": job_id,
+        "version": ENVELOPE_VERSION,
+        "payload": json.dumps(payload),
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+
+
+def publish_ai_job_sync(redis: SyncRedis, event: str, payload: dict, job_id: str) -> str:
+    """AiStreamPublisher.publish for celery tasks, which run without an event loop"""
+    SyncStreamRepository(redis).add(
+        SETTINGS.AI_REQUEST_STREAM, _envelope(event, job_id, payload), SETTINGS.AI_STREAM_MAXLEN
+    )
+    sentry_logger.info(
+        "Published {event} job {job_id} to the ai worker", event=event, job_id=job_id
+    )
+    return job_id
+
+
 class AiStreamPublisher:
     """backend -> ai"""
 
@@ -55,13 +77,7 @@ class AiStreamPublisher:
         job_id = job_id or str(uuid.uuid4())
         await self._streams.add(
             SETTINGS.AI_REQUEST_STREAM,
-            {
-                "event": event,
-                "job_id": job_id,
-                "version": ENVELOPE_VERSION,
-                "payload": json.dumps(payload),
-                "created_at": datetime.now(UTC).isoformat(),
-            },
+            _envelope(event, job_id, payload),
             SETTINGS.AI_STREAM_MAXLEN,
         )
         sentry_logger.info(
