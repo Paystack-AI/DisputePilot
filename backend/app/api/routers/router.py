@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routers import (
     admin,
+    admin_merchants,
     auth,
     customers,
     dashboard,
@@ -39,3 +40,4 @@ router.include_router(disputes.router, tags=["Disputes"])
 router.include_router(trust.router, tags=["TrustLayer"])
 router.include_router(dashboard.router, tags=["Dashboard"])
 router.include_router(admin.router, tags=["Admin"])
+router.include_router(admin_merchants.router, tags=["Admin"])

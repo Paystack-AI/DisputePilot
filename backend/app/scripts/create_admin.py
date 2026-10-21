@@ -10,8 +10,10 @@ import getpass
 
 from app.api.models.admins import Admin
 from app.api.repo.admins import AdminAccountRepository
+from app.api.repo.redis import RedisRepository
+from app.api.services.admin_auth import AdminAuthService
 from app.core.security import Security
-from app.database.session import async_session
+from app.database.session import async_session, redis_client
 
 
 def _arguments() -> argparse.Namespace:
@@ -56,7 +58,14 @@ async def _run(email: str, name: str | None, password: str) -> None:
 
         await session.commit()
         await session.refresh(admin)
-        print(f"Admin {action}: {admin.email} ({admin.id})")
+
+    if action == "updated":
+        # a reset password ends every session signed in with the old one
+        await RedisRepository(async_redis=redis_client).delete_key(
+            AdminAuthService._sessions_key(str(admin.id))
+        )
+    await redis_client.aclose()
+    print(f"Admin {action}: {admin.email} ({admin.id})")
 
 
 def main() -> None:

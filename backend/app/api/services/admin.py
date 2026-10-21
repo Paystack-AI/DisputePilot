@@ -48,6 +48,13 @@ def _list_item(
 
 
 class AdminService:
+    async def viewed_merchant(self, merchant_id: UUID, uow: UnitOfWorkRepository) -> Merchant:
+        """The merchant an admin is viewing; their own routes' services read as them"""
+        merchant: Merchant | None = await uow.repo(AdminRepository).merchant(merchant_id)
+        if not merchant:
+            raise NotFoundError("Merchant")
+        return merchant
+
     async def overview(self, uow: UnitOfWorkRepository) -> AdminOverview:
         return AdminOverview(**await uow.repo(AdminRepository).overview())
 

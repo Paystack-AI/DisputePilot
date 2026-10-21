@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import load_only
 
 from app.api.models.customers import Customer
 from app.api.models.disputes import Dispute
@@ -130,6 +131,26 @@ class AdminRepository:
             select(Merchant, MerchantOnboarding, TrustProfile, transaction_count, dispute_count)
             .outerjoin(MerchantOnboarding, MerchantOnboarding.merchant_id == Merchant.id)
             .outerjoin(TrustProfile, TrustProfile.merchant_id == Merchant.id)
+            # only what a list row shows: never the key, the password hash or the signals
+            .options(
+                load_only(
+                    Merchant.id,
+                    Merchant.business_name,
+                    Merchant.email,
+                    Merchant.google_email,
+                    Merchant.is_verified,
+                    Merchant.is_active,
+                    Merchant.paystack_connected_at,
+                    Merchant.paystack_mode,
+                    Merchant.created_at,
+                ),
+                load_only(
+                    MerchantOnboarding.id,
+                    MerchantOnboarding.current_step,
+                    MerchantOnboarding.completed_at,
+                ),
+                load_only(TrustProfile.id, TrustProfile.current_state),
+            )
             .where(*filters)
             .order_by(Merchant.created_at.desc(), Merchant.id.desc())
         )
@@ -141,6 +162,10 @@ class AdminRepository:
             select(func.count()).select_from(Merchant).where(*filters)
         )
         return rows, total or 0
+
+    async def merchant(self, merchant_id: UUID) -> Merchant | None:
+        """The merchant an admin is viewing, for the merchant services to read as"""
+        return await self._async_session.get(Merchant, merchant_id)
 
     async def merchant_sources(self, merchant_id: UUID) -> Any | None:
         """The merchant row and its one-to-one onboarding, settings and trust profile"""
