@@ -64,10 +64,15 @@ services:
     restart: always
     volumes:
       - disputepilot_minio:/data
-    environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
-    command: ["server", "/data", "--console-address", ":9001"]
+    # the root user is the backend's MINIO_ACCESS_KEY / MINIO_SECRET_KEY from backend/.env,
+    # so the two always match. $$ defers to the container's shell: compose's own ${...}
+    # only reads the shell or a root .env, and left them empty
+    env_file: ./backend/.env
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        export MINIO_ROOT_USER="$$MINIO_ACCESS_KEY" MINIO_ROOT_PASSWORD="$$MINIO_SECRET_KEY"
+        && exec /usr/bin/docker-entrypoint.sh server /data --console-address :9001
     ports:
       - 9000:9000
       - 9001:9001
@@ -239,10 +244,11 @@ services:
     image: ngrok/ngrok:latest
     container_name: disputepilot_ngrok
     restart: always
+    # NGROK_AUTHTOKEN and NGROK_URL come from backend/.env. $$ defers the url to the
+    # container's shell: compose's own ${...} only reads the shell or a root .env
     env_file: ./backend/.env
-    environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    command: ["http", "disputepilot_api:8000", "--url", "${NGROK_URL}"]
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["exec ngrok http disputepilot_api:8000 --url $$NGROK_URL"]
     ports:
       - 4040:4040
     depends_on:

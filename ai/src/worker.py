@@ -16,7 +16,13 @@ logger = logging.getLogger(__name__)
 
 async def main():
     settings = get_settings()
-    redis: Redis = Redis.from_url(settings.REDIS_URL, decode_responses=True)
+    # redis-py 8 times a reply out after 5s by default, which a read blocking for
+    # AI_REQUEST_BLOCK_MS would hit whenever no job arrives; wait a little longer
+    redis: Redis = Redis.from_url(
+        settings.REDIS_URL,
+        decode_responses=True,
+        socket_timeout=settings.AI_REQUEST_BLOCK_MS / 1000 + 5,
+    )
 
     consumer = AiRequestConsumer(redis, build_handlers(redis, settings), settings)
     task: asyncio.Task = asyncio.create_task(consumer.run(), name="ai-request-consumer")

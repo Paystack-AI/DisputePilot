@@ -373,8 +373,14 @@ class TestEndpoints:
         assert page["state"] == "verified"
         assert page["payments_30d"] == 142
         assert "reconciles nearly all" in page["verification_summary"]
-        # nothing internal leaks
-        assert "88" not in res.text and "95" not in res.text
+        # nothing internal leaks: neither the score nor the rate is a value on the page
+        # (not a substring check: a timestamp's digits can contain "88" or "95")
+        assert not {88, 95} & {v for v in page.values() if isinstance(v, int | float)}
+        assert not any(
+            "88" in v or "95" in v
+            for key, v in page.items()
+            if isinstance(v, str) and not key.endswith(("_at", "_since"))
+        )
         assert set(page) == {
             "merchant_name",
             "state",

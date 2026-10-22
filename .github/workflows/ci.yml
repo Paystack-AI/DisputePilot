@@ -37,6 +37,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
+    # a stalled install fails the job instead of running until github's 6h limit
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
@@ -44,14 +46,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # matches the frontend Dockerfile (node:24-alpine) the lockfile was made with
+          node-version: '24'
           # Empty string ('') disables caching cleanly until frontend/package-lock.json
           # exists; once it's committed, hashFiles finds it and caching turns itself on.
           cache: ${{ hashFiles('frontend/package-lock.json') != '' && 'npm' || '' }}
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
+        # npm prints nothing while it downloads (~480 packages), so a slow install looks
+        # stuck. The cache above serves tarballs offline; skipping the audit and funding
+        # lookups saves more round trips
+        timeout-minutes: 10
         run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          if [ -f package-lock.json ]; then
+            npm ci --prefer-offline --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
       - name: Lint
         run: npm run lint
       - name: Format check

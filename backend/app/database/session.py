@@ -52,6 +52,9 @@ redis_pool = ConnectionPool.from_url(
     SETTINGS.REDIS_URL,
     decode_responses=True,
     max_connections=SETTINGS.REDIS_MAX_CONNECTIONS,
+    # redis-py 8 times a reply out after 5s by default; the blocking stream reads (the
+    # event stream's heartbeat wait, the ai result consumer) wait longer than that
+    socket_timeout=max(SETTINGS.EVENT_HEARTBEAT_SECONDS, SETTINGS.AI_RESULT_BLOCK_MS / 1000) + 5,
     retry=Retry(ExponentialBackoff(cap=1.0, base=0.1), retries=5),
     retry_on_error=[ConnectionError, TimeoutError],
     retry_on_timeout=True,
