@@ -76,6 +76,12 @@ services:
     ports:
       - 9000:9000
       - 9001:9001
+    networks:
+      default:
+        aliases:
+          # service names with underscores are not valid hostnames, and the storage
+          # server rejects them (400 Invalid Request)
+          - disputepilot-minio
     healthcheck:
       test: ["CMD-SHELL", "mc ready local"]
       retries: 5
@@ -118,6 +124,9 @@ services:
       - ./backend:/backend
       - /backend/.venv
     env_file: ./backend/.env
+    environment:
+      # backend/.env points at localhost for running the api outside docker
+      MINIO_ENDPOINT: disputepilot-minio:9000
     ports:
       - 8000:8000
     command:
@@ -155,6 +164,8 @@ services:
       - ./backend:/backend
       - /backend/.venv
     env_file: ./backend/.env
+    environment:
+      MINIO_ENDPOINT: disputepilot-minio:9000
     command:
       [
         "celery", "-A", "app.worker.celery_app", "worker",
