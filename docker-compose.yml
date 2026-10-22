@@ -216,6 +216,24 @@ services:
       disputepilot_redis:
         condition: service_healthy
 
+  # the Next.js app; browser traffic hits /api/proxy/* which the server forwards
+  # to the api, so the api does not need to be exposed to the browser
+  disputepilot_frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - BACKEND_INTERNAL_URL=http://disputepilot_api:8000
+    restart: always
+    container_name: disputepilot_frontend
+    environment:
+      - BACKEND_INTERNAL_URL=http://disputepilot_api:8000
+    ports:
+      - 3000:3000
+    depends_on:
+      disputepilot_api:
+        condition: service_healthy
+
   # a public url for the paystack webhook (set BACKEND_URL to it)
   disputepilot_ngrok:
     image: ngrok/ngrok:latest
