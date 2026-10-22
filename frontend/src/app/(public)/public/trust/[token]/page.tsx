@@ -51,9 +51,9 @@ export default function PublicTrustPageView() {
   if (query.isLoading) {
     return (
       <PublicFrame>
-        <div className="relative overflow-hidden rounded-3xl border border-line bg-white p-8 shadow-soft">
+        <div className="relative overflow-hidden rounded-xl border border-line bg-surface p-8 shadow-soft">
           <div className="animate-pulse space-y-4">
-            <div className="h-12 w-12 rounded-2xl bg-ink-100" />
+            <div className="h-12 w-12 rounded-xl bg-ink-100" />
             <div className="h-4 w-40 rounded bg-ink-100" />
             <div className="h-8 w-72 rounded bg-ink-100" />
             <div className="h-4 w-full rounded bg-ink-100" />
@@ -68,8 +68,8 @@ export default function PublicTrustPageView() {
     const notFound = query.error instanceof ApiError && query.error.status === 404;
     return (
       <PublicFrame>
-        <div className="rounded-3xl border border-line bg-white p-10 text-center shadow-soft">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-50 text-ink-400">
+        <div className="rounded-xl border border-line bg-surface p-10 text-center shadow-soft">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-ink-50 text-ink-400">
             <Lock className="h-6 w-6" />
           </div>
           <h1 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-ink-950">
@@ -82,7 +82,7 @@ export default function PublicTrustPageView() {
           </p>
           <Link
             href="/"
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-ink-950 px-4 py-2.5 text-[12px] font-semibold text-white transition hover:bg-ink-800"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-navy px-4 py-2.5 text-[12px] font-semibold text-white transition hover:bg-ink-800"
           >
             <ShieldCheck className="h-4 w-4" /> Go to DisputePilot
           </Link>
@@ -95,10 +95,8 @@ export default function PublicTrustPageView() {
 
   return (
     <PublicFrame>
-      <div className="overflow-hidden rounded-3xl border border-line bg-white shadow-soft">
-        <div className="relative overflow-hidden bg-ink-950 px-6 py-10 text-white sm:px-10 sm:py-12">
-          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-500/20 blur-3xl" />
-          <div className="absolute -bottom-24 left-10 h-56 w-56 rounded-full bg-amber-300/10 blur-3xl" />
+      <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-soft">
+        <div className="relative overflow-hidden bg-navy px-6 py-10 text-white sm:px-10 sm:py-12">
           <div className="relative">
             <span
               className={cn(
@@ -109,7 +107,7 @@ export default function PublicTrustPageView() {
               <BadgeCheck className="h-3.5 w-3.5" />
               TrustLayer {TRUST_LABELS[page.state]}
             </span>
-            <h1 className="mt-5 text-balance text-3xl font-semibold leading-tight tracking-[-0.04em] sm:text-[40px]">
+            <h1 className="mt-5 text-balance text-3xl font-semibold leading-tight tracking-[-0.04em] sm:text-[28px]">
               {page.merchant_name}
             </h1>
             <p className="mt-3 max-w-xl text-[14px] leading-7 text-ink-300">
@@ -131,7 +129,7 @@ export default function PublicTrustPageView() {
         </div>
 
         <div className="px-6 py-8 sm:px-10 sm:py-10">
-          <div className="flex items-start gap-3 rounded-2xl border border-brand-200 bg-brand-50/60 p-4">
+          <div className="flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-50/60 p-4">
             <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
             <div>
               <p className="text-[13px] font-semibold text-ink-900">
@@ -145,13 +143,13 @@ export default function PublicTrustPageView() {
             </div>
           </div>
 
-          <h2 className="mt-8 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-400">
+          <h2 className="mt-8 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-400">
             What this merchant does well
           </h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             {CHECKS.map((check) => (
-              <div key={check.title} className="rounded-2xl border border-line bg-canvas p-4">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-brand-700 shadow-sm ring-1 ring-inset ring-line">
+              <div key={check.title} className="rounded-xl border border-line bg-canvas p-4">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-surface text-brand-700 shadow-sm ring-1 ring-inset ring-line">
                   <check.icon className="h-4 w-4" />
                 </div>
                 <p className="mt-3 text-[12px] font-semibold text-ink-900">{check.title}</p>
@@ -189,7 +187,7 @@ function PublicFrame({ children }: { children: React.ReactNode }) {
       <header className="border-b border-line bg-warm-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-6 sm:px-6">
           <Brand />
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500 ring-1 ring-inset ring-line">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-500 ring-1 ring-inset ring-line">
             <ShieldCheck className="h-3 w-3 text-brand-600" /> TrustLayer
           </span>
         </div>

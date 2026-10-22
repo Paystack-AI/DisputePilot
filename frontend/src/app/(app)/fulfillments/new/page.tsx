@@ -157,7 +157,7 @@ function FulfillmentForm() {
         }
       />
 
-      <form onSubmit={submit} className="grid gap-6 xl:grid-cols-[1.35fr_1fr]">
+      <form onSubmit={submit} className="grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_1fr]">
         <div className="space-y-6">
           <Card>
             <CardHeader
@@ -245,7 +245,7 @@ function FulfillmentForm() {
           <Card>
             <CardHeader title="Fulfillment details" />
             <CardBody className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="type">Fulfillment type</Label>
                   <Select id="type" value={type} onChange={(event) => setType(event.target.value)}>
@@ -266,7 +266,7 @@ function FulfillmentForm() {
                   />
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="recipient">Recipient name</Label>
                   <Input
@@ -327,7 +327,7 @@ function FulfillmentForm() {
                       <AuthImage fileId={file.id} alt={file.file_name} className="h-28 w-full" />
                       <button
                         type="button"
-                        className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-danger opacity-0 shadow transition group-hover:opacity-100"
+                        className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-surface/90 text-danger opacity-0 shadow transition group-hover:opacity-100"
                         onClick={() => removeFile(file.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -339,14 +339,14 @@ function FulfillmentForm() {
               <div
                 {...getRootProps()}
                 className={cn(
-                  'flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-4 py-8 text-center transition',
+                  'flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-4 py-8 text-center transition',
                   isDragActive
                     ? 'border-brand-400 bg-brand-50'
-                    : 'border-ink-200 bg-ink-50/40 hover:border-brand-300 hover:bg-brand-50/30',
+                    : 'border-line bg-ink-50/40 hover:border-brand-300 hover:bg-brand-50/30',
                 )}
               >
                 <input {...getInputProps()} />
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-brand-700 shadow-sm ring-1 ring-inset ring-line">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface text-brand-700 shadow-sm ring-1 ring-inset ring-line">
                   {uploading ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
@@ -368,10 +368,10 @@ function FulfillmentForm() {
         </div>
 
         <div className="space-y-6">
-          <Card className="bg-ink-950 p-5 text-white">
+          <Card className="bg-navy p-5 text-white">
             <div className="flex items-center gap-2 text-brand-300">
               <Camera className="h-4 w-4" />
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em]">Quick log</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.06em]">Quick log</p>
             </div>
             <h3 className="mt-3 text-xl font-semibold tracking-[-0.03em]">
               Select order, snap a photo, save.

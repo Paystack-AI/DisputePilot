@@ -114,7 +114,7 @@ export default function SettingsPage() {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_340px]">
         <div className="min-w-0 space-y-6">
           <Card>
             <CardHeader
@@ -123,7 +123,7 @@ export default function SettingsPage() {
             />
             <CardBody className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
                   <Building2 className="h-5 w-5" />
                 </div>
                 <div>
@@ -135,7 +135,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
               </div>
-              <div className="grid gap-3 rounded-xl bg-ink-50/70 p-4 text-[12px] sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 rounded-xl bg-ink-50/70 p-4 text-[12px] sm:grid-cols-2">
                 <Info
                   label="Merchant since"
                   value={merchant?.created_at ? formatDate(merchant.created_at) : '—'}
@@ -162,7 +162,7 @@ export default function SettingsPage() {
               action={<RefreshCcw className="h-4 w-4 text-ink-400" />}
             />
             <CardBody className="space-y-5">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-500">
                     Lookback window
@@ -329,7 +329,7 @@ export default function SettingsPage() {
             </CardBody>
           </Card>
 
-          <div className="flex items-start gap-2 rounded-2xl bg-white p-4 text-[11px] leading-5 text-ink-500 ring-1 ring-inset ring-line">
+          <div className="flex items-start gap-2 rounded-xl bg-surface p-4 text-[11px] leading-5 text-ink-500 ring-1 ring-inset ring-line">
             <Loader2
               className={saveMutation.isPending ? 'mt-0.5 h-3.5 w-3.5 animate-spin' : 'hidden'}
             />

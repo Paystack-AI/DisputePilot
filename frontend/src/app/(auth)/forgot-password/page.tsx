@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
         </>
       }
     >
-      <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">
+      <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">
         <KeyRound className="h-6 w-6" />
       </div>
       <form onSubmit={submit} className="space-y-4">

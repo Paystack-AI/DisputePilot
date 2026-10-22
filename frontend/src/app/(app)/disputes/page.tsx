@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import { Pagination } from '@/components/ui/pagination';
 import { Tabs } from '@/components/ui/tabs';
+import { useUrlParam } from '@/lib/use-url-param';
 
 const filters = [
   { value: 'all', label: 'All', status: undefined },
@@ -29,7 +30,7 @@ const filters = [
 
 export default function DisputesPage() {
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useUrlParam('status', 'all');
   const [page, setPage] = useState(1);
   const activeFilter = filters.find((item) => item.value === filter) ?? filters[0];
 
@@ -84,7 +85,7 @@ export default function DisputesPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Open disputes"
           value={stats?.open ?? 0}
@@ -129,10 +130,10 @@ export default function DisputesPage() {
 
       {disputesQuery.data?.data.length ? (
         <>
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             {disputesQuery.data.data.map((dispute) => (
               <Link key={dispute.id} href={`/disputes/${dispute.id}`} className="group">
-                <Card className="h-full p-5 transition group-hover:-translate-y-0.5 group-hover:border-brand-200 group-hover:shadow-float">
+                <Card className="h-full p-5 transition group-hover:border-brand-200 group-hover:shadow-float">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-3">
                       <div
@@ -178,7 +179,7 @@ export default function DisputesPage() {
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-ink-400">
-                    <span className="rounded-md bg-white px-2 py-1 ring-1 ring-inset ring-line">
+                    <span className="rounded-md bg-surface px-2 py-1 ring-1 ring-inset ring-line">
                       Opened {timeAgo(dispute.created_at)}
                     </span>
                     {dispute.readiness ? (
@@ -195,7 +196,7 @@ export default function DisputesPage() {
                       </span>
                     ) : null}
                     {dispute.quality ? (
-                      <span className="rounded-md bg-white px-2 py-1 font-semibold text-ink-600 ring-1 ring-inset ring-line">
+                      <span className="rounded-md bg-surface px-2 py-1 font-semibold text-ink-600 ring-1 ring-inset ring-line">
                         Draft {dispute.quality.score}
                       </span>
                     ) : null}

@@ -99,3 +99,21 @@ export function toLocalInput(value?: string | Date) {
   const date = value ? new Date(value) : new Date();
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 }
+
+const CHANNELS: Record<string, string> = {
+  card: 'Card',
+  bank: 'Bank',
+  bank_transfer: 'Transfer',
+  mobile_money: 'Mobile money',
+  ussd: 'USSD',
+  qr: 'QR',
+  eft: 'EFT',
+  apple_pay: 'Apple Pay',
+  other: 'Other',
+};
+
+/** How a payment channel reads in a table: USSD, not Ussd */
+export function channelLabel(channel: string | null | undefined) {
+  if (!channel) return '—';
+  return CHANNELS[channel] ?? titleCase(channel);
+}

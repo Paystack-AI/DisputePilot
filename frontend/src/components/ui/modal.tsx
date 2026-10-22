@@ -43,7 +43,7 @@ export function Modal({
       <button
         type="button"
         aria-label="Close dialog"
-        className="absolute inset-0 bg-ink-950/50 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
         onClick={onClose}
       />
       <div
@@ -51,15 +51,15 @@ export function Modal({
         aria-modal="true"
         aria-labelledby="modal-title"
         className={cn(
-          'relative z-10 max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-float animate-fade-up sm:rounded-3xl',
+          'relative z-10 max-h-[92vh] w-full overflow-y-auto rounded-t-xl border border-line bg-surface shadow-float animate-fade-up sm:rounded-xl',
           size === 'sm' && 'sm:max-w-md',
           size === 'md' && 'sm:max-w-xl',
           size === 'lg' && 'sm:max-w-3xl',
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
+        <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
           <div>
-            <h2 id="modal-title" className="text-lg font-semibold tracking-[-0.02em] text-ink-900">
+            <h2 id="modal-title" className="text-[16px] font-semibold text-ink-900">
               {title}
             </h2>
             {description ? (
@@ -70,9 +70,9 @@ export function Modal({
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <div className="px-6 py-5">{children}</div>
+        <div className="px-5 py-4">{children}</div>
         {footer ? (
-          <div className="flex items-center justify-end gap-3 border-t border-line bg-ink-50/50 px-6 py-4">
+          <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3.5">
             {footer}
           </div>
         ) : null}

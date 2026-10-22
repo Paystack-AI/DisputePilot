@@ -98,12 +98,12 @@ function NewOrderForm() {
         description="Log the sale now. When the Paystack payment arrives, reconciliation can match it automatically."
       />
 
-      <div className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.3fr_1fr]">
         <Card>
           <CardBody className="p-6">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               {formError ? <Alert tone="danger">{formError}</Alert> : null}
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="order_number">Order number</Label>
                   <Input id="order_number" placeholder="e.g. 1048" {...register('order_number')} />
@@ -138,7 +138,7 @@ function NewOrderForm() {
                 <FieldError>{errors.description?.message}</FieldError>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-[1.2fr_0.8fr]">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1.2fr_0.8fr]">
                 <div>
                   <Label htmlFor="amount">Amount</Label>
                   <Input
@@ -209,8 +209,8 @@ function NewOrderForm() {
         </Card>
 
         <div className="space-y-4">
-          <Card className="bg-ink-950 p-5 text-white">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-300">
+          <Card className="bg-navy p-5 text-white">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-brand-300">
               Make matching effortless
             </p>
             <h3 className="mt-3 text-xl font-semibold tracking-[-0.03em]">

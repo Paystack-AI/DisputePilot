@@ -2,11 +2,20 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { href, rowClick } from '@/lib/links';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, CreditCard, RefreshCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiList, apiRequest, errorMessage } from '@/lib/api';
-import { formatDateTime, formatMoney, queryString, timeAgo, titleCase } from '@/lib/format';
+import {
+  channelLabel,
+  formatDateTime,
+  formatMoney,
+  queryString,
+  timeAgo,
+  titleCase,
+} from '@/lib/format';
 import type { PageMeta, ReconciliationStatus, Transaction } from '@/lib/types';
 import { RECONCILIATION_LABELS, TRANSACTION_LABELS } from '@/lib/constants';
 import { PageHeader } from '@/components/ui/page-header';
@@ -17,6 +26,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Pagination } from '@/components/ui/pagination';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import { Tabs } from '@/components/ui/tabs';
+import { useUrlParam } from '@/lib/use-url-param';
 
 const reconciliationFilters: ('all' | ReconciliationStatus)[] = [
   'all',
@@ -27,9 +37,11 @@ const reconciliationFilters: ('all' | ReconciliationStatus)[] = [
 ];
 
 export default function TransactionsPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
-  const [reconciliation, setReconciliation] = useState<'all' | ReconciliationStatus>('all');
-  const [status, setStatus] = useState('');
+  const [reconciliationParam, setReconciliation] = useUrlParam('reconciliation_status', 'all');
+  const reconciliation = reconciliationParam as 'all' | ReconciliationStatus;
+  const [status, setStatus] = useUrlParam('status', '');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [page, setPage] = useState(1);
@@ -89,7 +101,7 @@ export default function TransactionsPage() {
             setPage(1);
           }}
         />
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <Select
             value={status}
             onChange={(event) => {
@@ -146,7 +158,11 @@ export default function TransactionsPage() {
             </thead>
             <tbody>
               {transactionsQuery.data.data.map((transaction) => (
-                <tr key={transaction.id}>
+                <tr
+                  key={transaction.id}
+                  className="row-link"
+                  onClick={rowClick(router.push, href.transaction(transaction.reference))}
+                >
                   <td>
                     <Link
                       href={`/transactions/${encodeURIComponent(transaction.reference)}`}
@@ -155,15 +171,27 @@ export default function TransactionsPage() {
                       {transaction.reference}
                     </Link>
                     {transaction.order ? (
-                      <p className="mt-0.5 text-[11px] text-ink-400">
+                      <Link
+                        href={`/orders/${transaction.order.id}`}
+                        className="mt-0.5 block text-[11px] text-ink-500 hover:text-brand-600 hover:underline"
+                      >
                         Order {transaction.order.order_number ?? '—'}
-                      </p>
+                      </Link>
                     ) : null}
                   </td>
                   <td>
-                    <p className="text-[12px] font-medium text-ink-800">
-                      {transaction.customer?.name ?? transaction.customer_name ?? '—'}
-                    </p>
+                    {transaction.customer ? (
+                      <Link
+                        href={`/customers/${transaction.customer.id}`}
+                        className="block text-[12px] font-medium text-ink-800 hover:text-brand-600 hover:underline"
+                      >
+                        {transaction.customer.name ?? transaction.customer_name ?? 'Customer'}
+                      </Link>
+                    ) : (
+                      <p className="text-[12px] font-medium text-ink-800">
+                        {transaction.customer_name ?? '—'}
+                      </p>
+                    )}
                     <p className="text-[11px] text-ink-400">
                       {transaction.customer_email ?? 'No email'}
                     </p>
@@ -171,7 +199,7 @@ export default function TransactionsPage() {
                   <td className="font-semibold text-ink-900">
                     {formatMoney(transaction.amount, transaction.currency)}
                   </td>
-                  <td className="text-[12px] text-ink-500">{titleCase(transaction.channel)}</td>
+                  <td className="text-[12px] text-ink-500">{channelLabel(transaction.channel)}</td>
                   <td>
                     <Badge tone={statusTone(transaction.status)}>
                       {TRANSACTION_LABELS[transaction.status]}

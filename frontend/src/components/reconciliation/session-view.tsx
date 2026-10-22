@@ -24,6 +24,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Tabs } from '@/components/ui/tabs';
+import { CustomerLink, OrderLink, TransactionLink } from '@/components/ui/entity-link';
 
 type Actions = {
   onAccept?: (transactionId: string, orderId: string) => void;
@@ -124,7 +125,7 @@ function AllTransactions({ view }: { view: ReconciliationView }) {
     const items: {
       key: string;
       transaction: Transaction;
-      orderNumber: string | null;
+      order: { id: string; order_number: string | null } | null;
       state: string;
       tone: 'success' | 'warning' | 'danger' | 'neutral';
     }[] = [];
@@ -132,7 +133,7 @@ function AllTransactions({ view }: { view: ReconciliationView }) {
       items.push({
         key: `m-${item.transaction.id}`,
         transaction: item.transaction,
-        orderNumber: item.order.order_number,
+        order: item.order,
         state: item.tier ? `Matched · tier ${item.tier}` : 'Matched manually',
         tone: 'success',
       }),
@@ -141,7 +142,7 @@ function AllTransactions({ view }: { view: ReconciliationView }) {
       items.push({
         key: `s-${item.id}`,
         transaction: item.transaction,
-        orderNumber: item.order.order_number,
+        order: item.order,
         state: `${item.likelihood_percent}% suggested`,
         tone: 'warning',
       }),
@@ -150,7 +151,7 @@ function AllTransactions({ view }: { view: ReconciliationView }) {
       items.push({
         key: `u-${transaction.id}`,
         transaction,
-        orderNumber: null,
+        order: null,
         state: 'Unmatched payment',
         tone: 'warning',
       }),
@@ -159,7 +160,7 @@ function AllTransactions({ view }: { view: ReconciliationView }) {
       items.push({
         key: `f-${item.transaction.id}`,
         transaction: item.transaction,
-        orderNumber: null,
+        order: null,
         state: 'Flagged',
         tone: 'danger',
       }),
@@ -198,23 +199,26 @@ function AllTransactions({ view }: { view: ReconciliationView }) {
           {rows.map((row) => (
             <tr key={row.key}>
               <td>
-                <p className="font-mono text-[12px] font-semibold text-ink-900">
-                  {row.transaction.reference}
-                </p>
+                <TransactionLink
+                  reference={row.transaction.reference}
+                  className="text-[12px] font-semibold text-ink-900"
+                />
                 <p className="mt-0.5 text-[11px] capitalize text-ink-400">
                   {row.transaction.channel.replace(/_/g, ' ')}
                 </p>
               </td>
               <td>
-                <p className="text-[12px] font-medium text-ink-800">
-                  {row.transaction.customer_name ?? 'Unknown customer'}
-                </p>
+                <CustomerLink
+                  customer={row.transaction.customer}
+                  fallback={row.transaction.customer_name ?? 'Unknown customer'}
+                  className="block text-[12px] font-medium text-ink-800"
+                />
                 <p className="text-[11px] text-ink-400">{row.transaction.customer_email ?? '—'}</p>
               </td>
               <td className="font-semibold text-ink-900">
                 {formatMoney(row.transaction.amount, row.transaction.currency)}
               </td>
-              <td>{row.orderNumber ?? '—'}</td>
+              <td>{row.order ? <OrderLink order={row.order} /> : '—'}</td>
               <td>
                 <Badge tone={row.tone}>{row.state}</Badge>
               </td>
@@ -268,7 +272,8 @@ function MatchedList({
               ) : null}
             </div>
             <p className="mt-1 text-[12px] text-ink-500">
-              {item.transaction.reference} → Order {item.order.order_number ?? '—'} ·{' '}
+              <TransactionLink reference={item.transaction.reference} /> →{' '}
+              <OrderLink order={item.order} /> ·{' '}
               {item.transaction.customer_name ?? item.transaction.customer_email ?? 'Customer'}
             </p>
           </div>
@@ -310,7 +315,7 @@ function SuggestionList({
   return (
     <div className="space-y-3">
       {view.suggestions.map((item) => (
-        <div key={item.id} className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4">
+        <div key={item.id} className="rounded-xl border border-amber-200 bg-amber-50/40 p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Badge tone={item.confidence_tier === 'likely' ? 'success' : 'warning'}>
@@ -320,8 +325,8 @@ function SuggestionList({
             </div>
             <span className="text-[11px] text-ink-400">Tier {item.tier}</span>
           </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-xl border border-line bg-white p-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="rounded-xl border border-line bg-surface p-3">
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-400">
                 Payment
               </p>
@@ -329,13 +334,13 @@ function SuggestionList({
                 {formatMoney(item.transaction.amount, item.transaction.currency)}
               </p>
               <p className="mt-0.5 font-mono text-[11px] text-ink-500">
-                {item.transaction.reference}
+                <TransactionLink reference={item.transaction.reference} />
               </p>
               <p className="mt-1 text-[11px] text-ink-400">
                 {item.transaction.customer_name ?? item.transaction.customer_email ?? 'Unknown'}
               </p>
             </div>
-            <div className="rounded-xl border border-line bg-white p-3">
+            <div className="rounded-xl border border-line bg-surface p-3">
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-400">
                 Order
               </p>
@@ -343,7 +348,7 @@ function SuggestionList({
                 {formatMoney(item.order.amount, item.order.currency)}
               </p>
               <p className="mt-0.5 text-[11px] text-ink-500">
-                {item.order.order_number ?? 'No order number'}
+                <OrderLink order={item.order} />
               </p>
               <p className="mt-1 truncate text-[11px] text-ink-400">
                 {item.order.description ?? item.order.customer?.name ?? '—'}
@@ -387,7 +392,7 @@ function UnmatchedLists({
   onLink: (transaction: Transaction) => void;
 }) {
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-[13px] font-semibold text-ink-900">Payments without orders</h3>
@@ -396,14 +401,14 @@ function UnmatchedLists({
         {view.unmatched_payments.length ? (
           <div className="space-y-2.5">
             {view.unmatched_payments.map((transaction) => (
-              <div key={transaction.id} className="rounded-xl border border-line bg-white p-3.5">
+              <div key={transaction.id} className="rounded-xl border border-line bg-surface p-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[13px] font-semibold text-ink-900">
                       {formatMoney(transaction.amount, transaction.currency)}
                     </p>
                     <p className="mt-0.5 font-mono text-[11px] text-ink-500">
-                      {transaction.reference}
+                      <TransactionLink reference={transaction.reference} />
                     </p>
                     <p className="mt-1 text-[11px] text-ink-400">
                       {transaction.customer_name ??
@@ -444,14 +449,14 @@ function UnmatchedLists({
         {view.unmatched_orders.length ? (
           <div className="space-y-2.5">
             {view.unmatched_orders.map((order) => (
-              <div key={order.id} className="rounded-xl border border-line bg-white p-3.5">
+              <div key={order.id} className="rounded-xl border border-line bg-surface p-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[13px] font-semibold text-ink-900">
                       {formatMoney(order.amount, order.currency)}
                     </p>
                     <p className="mt-0.5 text-[11px] text-ink-500">
-                      Order {order.order_number ?? '—'} · {order.customer?.name ?? 'No customer'}
+                      <OrderLink order={order} /> · {order.customer?.name ?? 'No customer'}
                     </p>
                     <p className="mt-1 truncate text-[11px] text-ink-400">
                       {order.description ?? '—'}
@@ -552,7 +557,7 @@ function FlaggedList({
               </div>
               <div>
                 <p className="text-[13px] font-semibold text-ink-900">
-                  Order {item.order.order_number ?? '—'} ·{' '}
+                  <OrderLink order={item.order} /> ·{' '}
                   {formatMoney(item.order.amount, item.order.currency)}
                 </p>
                 <p className="mt-0.5 text-[11px] text-red-700">{item.reason ?? 'Flagged order'}</p>

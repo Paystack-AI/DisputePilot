@@ -3,8 +3,153 @@
 @tailwind utilities;
 
 :root {
-  --sidebar-width: 256px;
-  --topbar-height: 72px;
+  --sidebar-width: 248px;
+  --topbar-height: 64px;
+  color-scheme: light;
+  --ink-50: 247 248 250;
+  --ink-100: 241 243 246;
+  --ink-200: 226 230 236;
+  --ink-300: 203 210 220;
+  --ink-400: 148 160 178;
+  --ink-500: 100 116 139;
+  --ink-600: 71 85 105;
+  --ink-700: 51 65 85;
+  --ink-800: 30 41 59;
+  --ink-900: 15 23 42;
+  --ink-950: 8 14 30;
+  --brand-50: 239 245 255;
+  --brand-100: 219 231 254;
+  --brand-200: 191 211 254;
+  --brand-300: 147 180 253;
+  --brand-400: 96 144 250;
+  --brand-500: 59 110 246;
+  --brand-600: 29 87 235;
+  --brand-700: 24 70 212;
+  --brand-800: 26 58 171;
+  --brand-900: 27 53 134;
+  --brand-950: 21 34 81;
+  --red-50: 254 242 242;
+  --red-100: 254 226 226;
+  --red-200: 254 202 202;
+  --red-300: 252 165 165;
+  --red-400: 248 113 113;
+  --red-500: 239 68 68;
+  --red-600: 220 38 38;
+  --red-700: 185 28 28;
+  --red-800: 153 27 27;
+  --red-900: 127 29 29;
+  --amber-50: 255 251 235;
+  --amber-100: 254 243 199;
+  --amber-200: 253 230 138;
+  --amber-300: 252 211 77;
+  --amber-400: 251 191 36;
+  --amber-500: 245 158 11;
+  --amber-600: 217 119 6;
+  --amber-700: 180 83 9;
+  --amber-800: 146 64 14;
+  --amber-900: 120 53 15;
+  --emerald-50: 236 253 245;
+  --emerald-100: 209 250 229;
+  --emerald-200: 167 243 208;
+  --emerald-300: 110 231 183;
+  --emerald-500: 16 185 129;
+  --emerald-600: 5 150 105;
+  --emerald-700: 4 120 87;
+  --emerald-800: 6 95 70;
+  --sky-50: 240 249 255;
+  --sky-100: 224 242 254;
+  --sky-200: 186 230 253;
+  --sky-700: 3 105 161;
+  --sky-800: 7 89 133;
+  --violet-50: 245 243 255;
+  --violet-200: 221 214 254;
+  --violet-700: 109 40 217;
+  --canvas: 245 247 250;
+  --surface: 255 255 255;
+  --line: 214 226 250;
+  --navy: 10 31 68;
+}
+
+/* dark theme: set by the toggle (html.dark) */
+.dark {
+  color-scheme: dark;
+  --ink-50: 22 30 46;
+  --ink-100: 30 41 59;
+  --ink-200: 44 56 76;
+  --ink-300: 64 78 100;
+  --ink-400: 110 124 146;
+  --ink-500: 148 160 178;
+  --ink-600: 176 186 200;
+  --ink-700: 203 210 220;
+  --ink-800: 226 230 236;
+  --ink-900: 241 243 246;
+  --ink-950: 248 250 252;
+  --brand-50: 23 37 72;
+  --brand-100: 27 45 92;
+  --brand-200: 38 64 130;
+  --brand-300: 60 96 186;
+  --brand-400: 96 144 250;
+  --brand-500: 80 128 250;
+  --brand-600: 59 110 246;
+  --brand-700: 124 160 252;
+  --brand-800: 160 188 253;
+  --brand-900: 191 211 254;
+  --brand-950: 219 231 254;
+  --red-50: 58 20 24;
+  --red-100: 76 24 28;
+  --red-200: 110 34 38;
+  --red-300: 150 45 50;
+  --red-400: 220 80 80;
+  --red-500: 239 68 68;
+  --red-600: 248 113 113;
+  --red-700: 252 165 165;
+  --red-800: 254 202 202;
+  --red-900: 254 226 226;
+  --amber-50: 56 38 12;
+  --amber-100: 74 50 14;
+  --amber-200: 110 72 18;
+  --amber-300: 150 98 20;
+  --amber-400: 217 119 6;
+  --amber-500: 245 158 11;
+  --amber-600: 251 191 36;
+  --amber-700: 252 211 77;
+  --amber-800: 253 230 138;
+  --amber-900: 254 243 199;
+  --emerald-50: 10 45 35;
+  --emerald-100: 12 60 45;
+  --emerald-200: 20 90 65;
+  --emerald-300: 30 130 95;
+  --emerald-500: 16 185 129;
+  --emerald-600: 52 211 153;
+  --emerald-700: 110 231 183;
+  --emerald-800: 167 243 208;
+  --sky-50: 12 40 60;
+  --sky-100: 15 52 78;
+  --sky-200: 20 70 100;
+  --sky-700: 125 211 252;
+  --sky-800: 186 230 253;
+  --violet-50: 40 28 70;
+  --violet-200: 70 50 120;
+  --violet-700: 196 181 253;
+  --canvas: 10 15 26;
+  --surface: 17 24 38;
+  --line: 34 44 62;
+  --navy: 9 18 38;
+}
+
+/* navy panels keep light-theme greys in dark mode, so muted text on them stays readable */
+.dark .bg-navy {
+  --ink-50: 247 248 250;
+  --ink-100: 241 243 246;
+  --ink-200: 226 230 236;
+  --ink-300: 203 210 220;
+  --ink-400: 148 160 178;
+  --ink-500: 100 116 139;
+  --ink-600: 71 85 105;
+  --ink-700: 51 65 85;
+  --ink-800: 30 41 59;
+  --ink-900: 15 23 42;
+  --ink-950: 8 14 30;
 }
 
 * {
@@ -13,16 +158,16 @@
 
 html {
   min-height: 100%;
-  background: #f5f6f2;
+  background: rgb(var(--canvas));
 }
 
 body {
   min-height: 100vh;
   margin: 0;
-  color: #111c2b;
-  background: #f5f6f2;
+  color: rgb(var(--ink-900));
+  background: rgb(var(--canvas));
   font-family:
-    'Inter',
+    var(--font-sans),
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -59,20 +204,20 @@ button:disabled {
 }
 
 ::selection {
-  color: #06271d;
-  background: #b0eacb;
+  color: rgb(var(--brand-950));
+  background: rgb(var(--brand-200));
 }
 
 @layer base {
   :focus-visible {
-    outline: 2px solid #20a46c;
+    outline: 2px solid rgb(var(--brand-500));
     outline-offset: 2px;
   }
 }
 
 @layer components {
   .surface {
-    @apply rounded-2xl border border-line bg-white shadow-card;
+    @apply rounded-xl border border-line bg-surface shadow-card;
   }
 
   .label {
@@ -80,15 +225,15 @@ button:disabled {
   }
 
   .field {
-    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm text-ink-900 shadow-sm outline-none transition placeholder:text-ink-400 focus:border-brand-400 focus:ring-4 focus:ring-brand-100;
+    @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-900 outline-none transition placeholder:text-ink-400 focus:border-brand-500 focus:ring-[3px] focus:ring-brand-500/15;
   }
 
   .field-error {
-    @apply border-danger focus:border-danger focus:ring-red-100;
+    @apply border-danger focus:border-danger focus:ring-red-500/15;
   }
 
   .table-shell {
-    @apply overflow-hidden rounded-2xl border border-line bg-white shadow-card;
+    @apply overflow-hidden rounded-xl border border-line bg-surface shadow-card;
   }
 
   .table-base {
@@ -96,31 +241,44 @@ button:disabled {
   }
 
   .table-base thead {
-    @apply bg-ink-50/80 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-500;
+    @apply text-[11px] font-medium uppercase tracking-[0.06em] text-ink-500;
   }
 
   .table-base th {
-    @apply whitespace-nowrap px-5 py-3.5;
+    @apply whitespace-nowrap border-b border-line px-4 py-3;
   }
 
   .table-base td {
-    @apply border-t border-line/80 px-5 py-4 align-middle text-ink-700;
+    @apply border-t border-line/70 px-4 py-3 align-middle text-ink-700;
+  }
+
+  .table-base tbody tr:first-child td {
+    @apply border-t-0;
   }
 
   .table-base tbody tr {
-    @apply transition-colors hover:bg-ink-50/50;
+    @apply transition-colors hover:bg-ink-50;
+  }
+
+  /* a table row that opens a record: the whole row is the link target */
+  .row-link {
+    @apply cursor-pointer;
   }
 
   .skeleton {
-    @apply animate-pulse rounded-lg bg-ink-100;
+    @apply animate-pulse rounded-md bg-ink-100;
   }
 
   .sidebar-link {
-    @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-300 transition hover:bg-white/10 hover:text-white;
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-white/70 transition hover:bg-white/[0.06] hover:text-white;
   }
 
   .sidebar-link-active {
-    @apply bg-white/10 text-white shadow-[inset_2px_0_0_#45c087];
+    @apply bg-brand-600 text-white hover:bg-brand-600;
+  }
+
+  .link {
+    @apply font-medium text-brand-600 underline-offset-2 hover:underline;
   }
 
   .prose-copy {
@@ -131,7 +289,7 @@ button:disabled {
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #d3dbe5 transparent;
+    scrollbar-color: rgb(var(--ink-200)) transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -141,7 +299,7 @@ button:disabled {
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
     border-radius: 999px;
-    background: #d3dbe5;
+    background: rgb(var(--ink-200));
   }
 
   .text-balance {
@@ -149,7 +307,7 @@ button:disabled {
   }
 
   .grid-fade {
-    background-image: radial-gradient(rgba(17, 28, 43, 0.08) 1px, transparent 1px);
+    background-image: radial-gradient(rgb(var(--ink-900) / 0.08) 1px, transparent 1px);
     background-size: 22px 22px;
     mask-image: linear-gradient(to bottom, black, transparent 80%);
   }

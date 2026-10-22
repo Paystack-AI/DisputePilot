@@ -31,7 +31,7 @@ export default function PublicTrustBadgePage() {
     const hidden = query.error instanceof ApiError && query.error.status === 404;
     return (
       <BadgeFrame>
-        <div className="flex h-[60px] w-[200px] items-center gap-2 rounded-xl border border-line bg-white px-3 text-[10px] text-ink-400">
+        <div className="flex h-[60px] w-[200px] items-center gap-2 rounded-xl border border-line bg-surface px-3 text-[10px] text-ink-400">
           <ShieldCheck className="h-4 w-4" />
           {hidden ? 'Badge unavailable' : 'TrustLayer'}
         </div>
@@ -49,7 +49,7 @@ export default function PublicTrustBadgePage() {
           'flex h-[60px] w-[200px] items-center gap-2.5 rounded-xl border px-3',
           verified
             ? 'border-brand-200 bg-brand-50 text-brand-900'
-            : 'border-line bg-white text-ink-900',
+            : 'border-line bg-surface text-ink-900',
         )}
       >
         <span

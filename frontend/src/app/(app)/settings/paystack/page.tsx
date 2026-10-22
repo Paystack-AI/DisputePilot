@@ -129,7 +129,7 @@ export default function PaystackSettingsPage() {
             action={<ShieldCheck className="h-4 w-4 text-brand-600" />}
           />
           <CardBody className="space-y-4">
-            <div className="flex items-center gap-3 rounded-2xl border border-brand-200 bg-brand-50/60 p-4">
+            <div className="flex items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/60 p-4">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-600 text-white">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
@@ -144,7 +144,7 @@ export default function PaystackSettingsPage() {
                 </p>
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Detail label="Mode" value={status.mode ? titleCase(status.mode) : '—'} />
               <Detail label="Integration ID" value={status.integration_id ?? '—'} mono />
               <Detail
@@ -202,10 +202,10 @@ export default function PaystackSettingsPage() {
         </Card>
       ) : (
         <Card className="overflow-hidden">
-          <div className="bg-ink-950 px-5 py-6 text-white sm:px-6">
+          <div className="bg-navy px-5 py-6 text-white sm:px-6">
             <div className="flex items-center gap-2 text-brand-300">
               <CreditCard className="h-4 w-4" />
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em]">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.06em]">
                 Connect in one step
               </p>
             </div>
@@ -321,7 +321,7 @@ export default function PaystackSettingsPage() {
       ) : null}
 
       {!status?.connected ? (
-        <div className="flex items-start gap-2.5 rounded-2xl border border-line bg-white p-4">
+        <div className="flex items-start gap-2.5 rounded-xl border border-line bg-surface p-4">
           <Lock className="mt-0.5 h-4 w-4 shrink-0 text-ink-400" />
           <p className="text-[11px] leading-5 text-ink-500">
             DisputePilot uses your Paystack key solely to read transactions for reconciliation and

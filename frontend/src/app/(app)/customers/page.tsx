@@ -2,6 +2,8 @@
 
 import { useDeferredValue, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { href, rowClick } from '@/lib/links';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, Plus, Search, Users } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,6 +22,7 @@ import { Pagination } from '@/components/ui/pagination';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
 export default function CustomersPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
@@ -106,7 +109,11 @@ export default function CustomersPage() {
               </thead>
               <tbody>
                 {customersQuery.data.data.map((customer) => (
-                  <tr key={customer.id}>
+                  <tr
+                    key={customer.id}
+                    className="row-link"
+                    onClick={rowClick(router.push, href.customer(customer.id))}
+                  >
                     <td>
                       <Link
                         href={`/customers/${customer.id}`}

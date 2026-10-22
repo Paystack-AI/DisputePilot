@@ -71,7 +71,7 @@ function LoginForm() {
   return (
     <AuthShell
       title="Welcome back"
-      subtitle="Sign in to reconcile payments, defend disputes and manage your trust profile."
+      subtitle="Log in to your DisputePilot dashboard."
       footer={
         <>
           New to DisputePilot?{' '}
@@ -90,7 +90,7 @@ function LoginForm() {
         {formError ? <Alert tone="danger">{formError}</Alert> : null}
 
         <div>
-          <Label htmlFor="email">Work email</Label>
+          <Label htmlFor="email">Email address</Label>
           <Input
             id="email"
             type="email"
@@ -135,13 +135,7 @@ function LoginForm() {
         </div>
 
         <Button type="submit" size="lg" className="w-full" loading={isSubmitting}>
-          {isSubmitting ? (
-            'Signing in'
-          ) : (
-            <>
-              Sign in <ArrowIcon />
-            </>
-          )}
+          {isSubmitting ? 'Logging in' : 'Log in'}
         </Button>
 
         <p className="text-center text-[11px] leading-5 text-ink-400">
@@ -152,22 +146,6 @@ function LoginForm() {
         <GoogleButton />
       </div>
     </AuthShell>
-  );
-}
-
-function ArrowIcon() {
-  return (
-    <span className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/15">
-      <svg
-        viewBox="0 0 24 24"
-        className="h-3 w-3"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.5"
-      >
-        <path d="M5 12h14M13 6l6 6-6 6" />
-      </svg>
-    </span>
   );
 }
 

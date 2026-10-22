@@ -171,7 +171,7 @@ export default function OnboardingPage() {
       />
 
       {!onboarding.completed ? (
-        <div className="rounded-2xl border border-line bg-white p-4">
+        <div className="rounded-xl border border-line bg-surface p-4">
           <div className="flex items-center justify-between text-[11px] font-medium text-ink-500">
             <span>
               Step {Math.min(currentIndex + 1, STEPS.length)} of {STEPS.length}
@@ -182,7 +182,7 @@ export default function OnboardingPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 md:grid-cols-[250px_1fr]">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[250px_1fr]">
         <div className="space-y-2">
           {STEPS.map((step, index) => {
             const state = onboarding.completed
@@ -208,7 +208,7 @@ export default function OnboardingPage() {
                     state === 'done'
                       ? 'bg-brand-600 text-white'
                       : state === 'active'
-                        ? 'bg-ink-950 text-white'
+                        ? 'bg-navy text-white'
                         : 'bg-ink-100 text-ink-400',
                   )}
                 >
@@ -234,7 +234,7 @@ export default function OnboardingPage() {
           {onboarding.completed ? (
             <Card>
               <CardBody className="py-10 text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500 text-white">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-brand-500 text-white">
                   <PartyPopper className="h-6 w-6" />
                 </div>
                 <h2 className="mt-4 text-xl font-semibold tracking-[-0.03em] text-ink-950">
@@ -269,10 +269,10 @@ export default function OnboardingPage() {
                 action={<CreditCard className="h-4 w-4 text-brand-600" />}
               />
               <CardBody className="space-y-5">
-                <div className="rounded-2xl bg-ink-950 p-5 text-white">
+                <div className="rounded-xl bg-navy p-5 text-white">
                   <div className="flex items-center gap-2 text-brand-300">
                     <Wallet className="h-4 w-4" />
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em]">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.06em]">
                       Read-only access
                     </p>
                   </div>
@@ -347,7 +347,7 @@ export default function OnboardingPage() {
             <Card>
               <CardBody className="py-8">
                 <div className="text-center">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
                     {syncInProgress ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
                     ) : syncFailed ? (
@@ -415,14 +415,14 @@ export default function OnboardingPage() {
                 action={<Sparkles className="h-4 w-4 text-brand-600" />}
               />
               <CardBody className="space-y-5">
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   {[
                     ['1', 'Match exact payments', 'Amount, date and reference line up.'],
                     ['2', 'Review suggestions', 'We suggest matches with a confidence score.'],
                     ['3', 'Flag the rest', 'Unmatched payments become follow-up tasks.'],
                   ].map(([number, title, description]) => (
                     <div key={number} className="rounded-xl border border-line p-3.5">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-ink-950 text-[10px] font-bold text-white">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-navy text-[10px] font-bold text-white">
                         {number}
                       </span>
                       <p className="mt-2 text-[11px] font-semibold text-ink-900">{title}</p>
@@ -450,7 +450,7 @@ export default function OnboardingPage() {
         </div>
       </div>
 
-      <div className="flex items-start gap-2 rounded-2xl border border-line bg-white px-4 py-3.5">
+      <div className="flex items-start gap-2 rounded-xl border border-line bg-surface px-4 py-3.5">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
         <p className="text-[11px] leading-5 text-ink-500">
           {paystackConnected

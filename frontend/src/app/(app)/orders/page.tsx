@@ -2,6 +2,8 @@
 
 import { useDeferredValue, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { href, rowClick } from '@/lib/links';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Plus, Search, ShoppingBag } from 'lucide-react';
 import { apiList } from '@/lib/api';
@@ -17,13 +19,15 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Pagination } from '@/components/ui/pagination';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import { Tabs } from '@/components/ui/tabs';
+import { useUrlParam } from '@/lib/use-url-param';
 
 const statusFilters = ['all', 'pending', 'paid', 'fulfilled', 'cancelled'];
 
 export default function OrdersPage() {
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
-  const [status, setStatus] = useState('all');
+  const [status, setStatus] = useUrlParam('status', 'all');
   const [page, setPage] = useState(1);
 
   const ordersQuery = useQuery({
@@ -99,7 +103,11 @@ export default function OrdersPage() {
             </thead>
             <tbody>
               {ordersQuery.data.data.map((order) => (
-                <tr key={order.id}>
+                <tr
+                  key={order.id}
+                  className="row-link"
+                  onClick={rowClick(router.push, href.order(order.id))}
+                >
                   <td>
                     <Link
                       href={`/orders/${order.id}`}
@@ -112,9 +120,16 @@ export default function OrdersPage() {
                     </p>
                   </td>
                   <td>
-                    <p className="text-[12px] font-medium text-ink-800">
-                      {order.customer?.name ?? '—'}
-                    </p>
+                    {order.customer ? (
+                      <Link
+                        href={`/customers/${order.customer.id}`}
+                        className="block text-[12px] font-medium text-ink-800 hover:text-brand-600 hover:underline"
+                      >
+                        {order.customer.name ?? order.customer.email ?? 'Customer'}
+                      </Link>
+                    ) : (
+                      <p className="text-[12px] font-medium text-ink-800">—</p>
+                    )}
                     <p className="text-[11px] text-ink-400">
                       {order.customer?.email ?? 'No customer'}
                     </p>

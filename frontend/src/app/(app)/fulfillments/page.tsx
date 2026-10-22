@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { href, rowClick } from '@/lib/links';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, Camera, ImageIcon, Truck } from 'lucide-react';
 import { apiList } from '@/lib/api';
@@ -22,6 +24,7 @@ const sorts = [
 ];
 
 export default function FulfillmentsPage() {
+  const router = useRouter();
   const [sort, setSort] = useState('-delivery_date');
   const [page, setPage] = useState(1);
 
@@ -78,7 +81,11 @@ export default function FulfillmentsPage() {
             </thead>
             <tbody>
               {fulfillmentsQuery.data.data.map((fulfillment) => (
-                <tr key={fulfillment.id}>
+                <tr
+                  key={fulfillment.id}
+                  className="row-link"
+                  onClick={rowClick(router.push, href.fulfillment(fulfillment.id))}
+                >
                   <td>
                     <Link
                       href={`/fulfillments/${fulfillment.id}`}

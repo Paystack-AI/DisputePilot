@@ -81,12 +81,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="min-h-screen bg-canvas">
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-ink-950 px-4 py-5 lg:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-navy px-4 py-5 lg:flex">
         <div className="px-2">
           <Brand light />
         </div>
         <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
-          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-300">
+          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-brand-300">
             <ShieldCheck className="h-3 w-3" /> Operator console
           </p>
           <p className="mt-1 text-[10px] leading-4 text-ink-400">
@@ -159,7 +159,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <button
                 type="button"
                 onClick={() => logout.mutate()}
-                className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-medium text-ink-600 transition hover:bg-white hover:text-ink-900"
+                className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-medium text-ink-600 transition hover:bg-surface hover:text-ink-900"
               >
                 <LogOut className="h-3.5 w-3.5" /> Sign out
               </button>
@@ -173,8 +173,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 className={cn(
                   'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium',
                   isActive(item.href, item.exact)
-                    ? 'bg-ink-950 text-white'
-                    : 'text-ink-500 hover:bg-white hover:text-ink-900',
+                    ? 'bg-navy text-white'
+                    : 'text-ink-500 hover:bg-surface hover:text-ink-900',
                 )}
               >
                 <item.icon className="h-3.5 w-3.5" />

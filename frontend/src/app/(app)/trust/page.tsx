@@ -132,9 +132,7 @@ export default function TrustPage() {
         }
       />
 
-      <div className="relative overflow-hidden rounded-3xl bg-ink-950 p-6 text-white shadow-float sm:p-8">
-        <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-brand-500/20 blur-3xl" />
-        <div className="absolute bottom-0 right-10 h-40 w-40 rounded-full bg-amber-300/10 blur-2xl" />
+      <div className="relative overflow-hidden rounded-xl bg-navy p-6 text-white sm:p-8">
         <div className="relative grid gap-8 lg:grid-cols-[1.4fr_0.8fr] lg:items-end">
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -178,7 +176,7 @@ export default function TrustPage() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+            <div className="rounded-xl border border-white/10 bg-white/[0.06] p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-400">
                 Internal score
               </p>
@@ -187,7 +185,7 @@ export default function TrustPage() {
               </p>
               <p className="mt-1 text-[10px] text-ink-400">Merchant-only</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-4">
+            <div className="rounded-xl border border-white/10 bg-white/[0.06] p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-400">
                 Public page
               </p>
@@ -202,7 +200,7 @@ export default function TrustPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr]">
         <Card>
           <CardHeader
             title="Signal breakdown"
@@ -366,7 +364,7 @@ export default function TrustPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr]">
         <Card>
           <CardHeader
             title="Trust history"
@@ -425,14 +423,14 @@ export default function TrustPage() {
             }
           />
           <CardBody>
-            <div className="rounded-2xl border border-line bg-gradient-to-br from-white to-brand-50/50 p-5">
+            <div className="rounded-xl border border-line bg-brand-50/40 p-5">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-500 text-white">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div>
                   <p className="text-[13px] font-semibold text-ink-950">Your business</p>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-brand-700">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-brand-700">
                     TrustLayer {TRUST_LABELS[profile.state]}
                   </p>
                 </div>
@@ -487,7 +485,7 @@ function ToggleRow({
       >
         <span
           className={cn(
-            'absolute top-1 h-4 w-4 rounded-full bg-white shadow transition',
+            'absolute top-1 h-4 w-4 rounded-full bg-surface shadow transition',
             enabled ? 'left-6' : 'left-1',
           )}
         />

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiList, apiRequest, errorMessage } from '@/lib/api';
-import { formatDate, formatDateTime, formatMoney, titleCase } from '@/lib/format';
+import { channelLabel, formatDate, formatDateTime, formatMoney, titleCase } from '@/lib/format';
 import type { Order, TransactionDetail } from '@/lib/types';
 import {
   ORDER_STATUS_LABELS,
@@ -137,7 +137,7 @@ export default function TransactionDetailPage() {
           </h1>
           <p className="mt-1 text-sm text-ink-500">
             {formatMoney(transaction.amount, transaction.currency)} ·{' '}
-            {titleCase(transaction.channel)} · paid {formatDateTime(transaction.paid_at)}
+            {channelLabel(transaction.channel)} · paid {formatDateTime(transaction.paid_at)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
@@ -175,7 +175,7 @@ export default function TransactionDetailPage() {
         </Alert>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="space-y-6">
           <Card>
             <CardHeader title="Payment details" description="As reported by Paystack." />
@@ -186,7 +186,7 @@ export default function TransactionDetailPage() {
                 label="Paystack fees"
                 value={formatMoney(transaction.paystack_fees, transaction.currency)}
               />
-              <Row label="Channel" value={titleCase(transaction.channel)} />
+              <Row label="Channel" value={channelLabel(transaction.channel)} />
               <Row label="Paid" value={formatDateTime(transaction.paid_at)} />
               <Row label="Reconciled" value={formatDateTime(transaction.reconciled_at)} />
               <Row label="Last synced" value={formatDateTime(transaction.synced_at)} />
@@ -281,7 +281,7 @@ export default function TransactionDetailPage() {
             <Card>
               <CardHeader title="Paystack metadata" />
               <CardBody>
-                <pre className="max-h-72 overflow-auto rounded-xl bg-ink-950 p-4 text-[11px] leading-5 text-ink-100 scrollbar-thin">
+                <pre className="max-h-72 overflow-auto rounded-xl bg-navy p-4 text-[11px] leading-5 text-ink-100 scrollbar-thin">
                   {JSON.stringify(transaction.metadata, null, 2)}
                 </pre>
               </CardBody>
@@ -347,7 +347,7 @@ export default function TransactionDetailPage() {
             {transaction.readiness ? (
               <CardBody className="space-y-4">
                 <div className="flex items-end justify-between">
-                  <p className="text-[36px] font-semibold leading-none tracking-[-0.04em] text-ink-950">
+                  <p className="text-[24px] font-semibold leading-none tracking-[-0.04em] text-ink-950">
                     {transaction.readiness.score}
                     <span className="text-base font-medium text-ink-400">/100</span>
                   </p>

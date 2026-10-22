@@ -236,7 +236,7 @@ function DetailPanel({
           <Alert tone="danger">{errorMessage(query.error)}</Alert>
         </div>
       ) : (
-        <pre className="max-h-[480px] overflow-auto bg-ink-950 p-5 text-[11px] leading-5 text-ink-100 scrollbar-thin">
+        <pre className="max-h-[480px] overflow-auto bg-navy p-5 text-[11px] leading-5 text-ink-100 scrollbar-thin">
           {JSON.stringify(query.data, null, 2)}
         </pre>
       )}

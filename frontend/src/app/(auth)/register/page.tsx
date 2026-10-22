@@ -149,7 +149,7 @@ export default function RegisterPage() {
           <FieldError>{errors.confirm_password?.message}</FieldError>
         </div>
 
-        <label className="flex items-start gap-2.5 rounded-xl border border-line bg-white px-3.5 py-3 text-[12px] leading-5 text-ink-600">
+        <label className="flex items-start gap-2.5 rounded-xl border border-line bg-surface px-3.5 py-3 text-[12px] leading-5 text-ink-600">
           <input
             type="checkbox"
             className="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-400"

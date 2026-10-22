@@ -12,22 +12,23 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 }
 
 const variants: Record<Variant, string> = {
+  // hovers darken with a filter, so they hold in both themes
   primary:
-    'bg-brand-600 text-white shadow-sm hover:bg-brand-700 active:bg-brand-800 disabled:bg-brand-300',
+    'bg-brand-600 text-white hover:brightness-[0.93] active:brightness-90 disabled:opacity-50 disabled:hover:brightness-100',
   secondary:
-    'bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200 hover:bg-brand-100 disabled:text-brand-400',
+    'bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200 hover:bg-brand-100 disabled:opacity-50',
   outline:
-    'bg-white text-ink-700 ring-1 ring-inset ring-line hover:bg-ink-50 disabled:text-ink-400',
-  ghost: 'text-ink-600 hover:bg-ink-100 hover:text-ink-900 disabled:text-ink-300',
-  danger: 'bg-danger text-white hover:bg-red-700 disabled:bg-red-300',
-  dark: 'bg-ink-900 text-white hover:bg-ink-800 disabled:bg-ink-500',
+    'bg-surface text-ink-700 ring-1 ring-inset ring-line hover:bg-ink-50 hover:text-ink-900 disabled:opacity-50',
+  ghost: 'text-ink-600 hover:bg-ink-100 hover:text-ink-900 disabled:opacity-50',
+  danger: 'bg-red-600 text-white hover:brightness-[0.93] disabled:opacity-50 dark:bg-red-500',
+  dark: 'bg-navy text-white hover:brightness-125 disabled:opacity-50',
 };
 
 const sizes: Record<Size, string> = {
-  sm: 'h-9 rounded-lg px-3 text-[13px] gap-1.5',
-  md: 'h-[42px] rounded-xl px-4 text-sm gap-2',
-  lg: 'h-12 rounded-xl px-5 text-[15px] gap-2',
-  icon: 'h-10 w-10 rounded-xl',
+  sm: 'h-8 rounded-md px-3 text-[13px] gap-1.5',
+  md: 'h-9 rounded-lg px-3.5 text-[13px] gap-2',
+  lg: 'h-11 rounded-lg px-5 text-sm gap-2',
+  icon: 'h-9 w-9 rounded-lg',
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -38,7 +39,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       className={cn(
-        'inline-flex items-center justify-center font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed',
+        'inline-flex items-center justify-center whitespace-nowrap font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 disabled:cursor-not-allowed',
         variants[variant],
         sizes[size],
         className,
