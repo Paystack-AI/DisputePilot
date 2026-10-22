@@ -64,13 +64,24 @@ services:
     restart: always
     volumes:
       - disputepilot_minio:/data
-    environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
-    command: ["server", "/data", "--console-address", ":9001"]
+    # the root user is the backend's MINIO_ACCESS_KEY / MINIO_SECRET_KEY from backend/.env,
+    # so the two always match. $$ defers to the container's shell: compose's own ${...}
+    # only reads the shell or a root .env, and left them empty
+    env_file: ./backend/.env
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        export MINIO_ROOT_USER="$$MINIO_ACCESS_KEY" MINIO_ROOT_PASSWORD="$$MINIO_SECRET_KEY"
+        && exec /usr/bin/docker-entrypoint.sh server /data --console-address :9001
     ports:
       - 9000:9000
       - 9001:9001
+    networks:
+      default:
+        aliases:
+          # service names with underscores are not valid hostnames, and the storage
+          # server rejects them (400 Invalid Request)
+          - disputepilot-minio
     healthcheck:
       test: ["CMD-SHELL", "mc ready local"]
       retries: 5
@@ -113,6 +124,9 @@ services:
       - ./backend:/backend
       - /backend/.venv
     env_file: ./backend/.env
+    environment:
+      # backend/.env points at localhost for running the api outside docker
+      MINIO_ENDPOINT: disputepilot-minio:9000
     ports:
       - 8000:8000
     command:
@@ -150,6 +164,8 @@ services:
       - ./backend:/backend
       - /backend/.venv
     env_file: ./backend/.env
+    environment:
+      MINIO_ENDPOINT: disputepilot-minio:9000
     command:
       [
         "celery", "-A", "app.worker.celery_app", "worker",
