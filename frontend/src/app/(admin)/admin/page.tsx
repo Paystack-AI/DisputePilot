@@ -75,14 +75,14 @@ export default function AdminOverviewPage() {
         actions={
           <Link
             href="/admin/merchants"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-ink-950 px-3.5 py-2.5 text-[12px] font-semibold text-white transition hover:bg-ink-800"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-navy px-3.5 py-2.5 text-[12px] font-semibold text-white transition hover:bg-ink-800"
           >
             All merchants <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
           label="Merchants"
           value={overview.total_merchants}
@@ -113,7 +113,7 @@ export default function AdminOverviewPage() {
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.3fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.3fr_1fr]">
         <Card>
           <CardHeader
             title="Trust distribution"
@@ -281,7 +281,7 @@ function Metric({
   tone: 'brand' | 'ink' | 'amber';
 }) {
   return (
-    <div className="rounded-2xl border border-line bg-white p-4">
+    <div className="rounded-xl border border-line bg-surface p-4">
       <div
         className={cn(
           'flex h-9 w-9 items-center justify-center rounded-xl',
@@ -319,7 +319,7 @@ function SmallStat({
   return (
     <Link
       href={href}
-      className="group rounded-2xl border border-line bg-white p-4 transition hover:border-brand-200 hover:bg-brand-50/30"
+      className="group rounded-xl border border-line bg-surface p-4 transition hover:border-brand-200 hover:bg-brand-50/30"
     >
       <div className="flex items-center justify-between">
         <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-ink-50 text-ink-500 group-hover:text-brand-700">

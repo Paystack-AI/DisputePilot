@@ -1,46 +1,57 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import { format, subDays } from 'date-fns';
 import {
-  Activity,
+  AlertTriangle,
+  ArrowLeftRight,
   ArrowRight,
   BadgeCheck,
   Camera,
   CheckCircle2,
-  CircleDollarSign,
+  ChevronRight,
   FileWarning,
   Gavel,
-  ListChecks,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
-  ShoppingBag,
-  TrendingUp,
-  Users,
+  CircleCheck,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { cn } from '@/lib/cn';
-import { formatDate, formatMoney, percent, timeAgo, titleCase } from '@/lib/format';
-import type { Dashboard, DisputeStats, DisputeTimeline, ReconciliationHealth } from '@/lib/types';
 import {
-  CATEGORY_LABELS,
-  RECONCILIATION_LABELS,
-  STATUS_LABELS,
-  TRUST_LABELS,
-  TRUST_TONE,
-} from '@/lib/constants';
-import { PageHeader } from '@/components/ui/page-header';
+  channelLabel,
+  formatDateTime,
+  formatMoney,
+  formatTime,
+  percent,
+  timeAgo,
+} from '@/lib/format';
+import type {
+  Dashboard,
+  DisputeSummary,
+  DisputeTimeline,
+  Merchant,
+  ReconciliationHealth,
+  Transaction,
+} from '@/lib/types';
+import { CATEGORY_LABELS, STATUS_LABELS, TRANSACTION_LABELS, TRUST_LABELS } from '@/lib/constants';
+import { activityHref, href } from '@/lib/links';
 import { StatCard } from '@/components/ui/stat-card';
-import { Card, CardBody, CardHeader } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge, statusTone } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Countdown } from '@/components/ui/countdown';
+import { Countdown, clockLabel, useRemaining } from '@/components/ui/countdown';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Select } from '@/components/ui/input';
 import { DisputeChart } from '@/components/dashboard/dispute-chart';
 import { ReconciliationChart } from '@/components/dashboard/reconciliation-chart';
-import { Avatar } from '@/components/ui/avatar';
+
+const PERIODS = [7, 30, 90] as const;
 
 const activityIcons = {
   dispute_created: ShieldAlert,
@@ -53,527 +64,559 @@ const activityIcons = {
   trust_changed: ShieldCheck,
 };
 
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export default function DashboardPage() {
+  const [days, setDays] = useState<(typeof PERIODS)[number]>(7);
+  const [chart, setChart] = useState<'disputes' | 'reconciliation'>('disputes');
+
+  const today = new Date();
+  const dateFrom = format(subDays(today, days - 1), 'yyyy-MM-dd');
+  const dateTo = format(today, 'yyyy-MM-dd');
+
+  const merchantQuery = useQuery({
+    queryKey: ['merchant', 'me'],
+    queryFn: () => apiRequest<Merchant>('/auth/me'),
+    staleTime: 5 * 60_000,
+  });
   const dashboardQuery = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: () => apiRequest<Dashboard>('/dashboard'),
+    queryKey: ['dashboard', days],
+    queryFn: () => apiRequest<Dashboard>(`/dashboard?date_from=${dateFrom}&date_to=${dateTo}`),
     refetchInterval: 60_000,
   });
-  const statsQuery = useQuery({
-    queryKey: ['disputes', 'stats'],
-    queryFn: () => apiRequest<DisputeStats>('/disputes/stats'),
-  });
+  const chartDays = days === 90 ? 90 : 30;
   const timelineQuery = useQuery({
-    queryKey: ['dashboard', 'dispute-timeline', 30],
-    queryFn: () => apiRequest<DisputeTimeline>('/dashboard/dispute-timeline?days=30'),
+    queryKey: ['dashboard', 'dispute-timeline', chartDays],
+    queryFn: () => apiRequest<DisputeTimeline>(`/dashboard/dispute-timeline?days=${chartDays}`),
   });
   const healthQuery = useQuery({
-    queryKey: ['dashboard', 'reconciliation-health', 30],
-    queryFn: () => apiRequest<ReconciliationHealth>('/dashboard/reconciliation-health?days=30'),
+    queryKey: ['dashboard', 'reconciliation-health', chartDays],
+    queryFn: () =>
+      apiRequest<ReconciliationHealth>(`/dashboard/reconciliation-health?days=${chartDays}`),
+    enabled: chart === 'reconciliation',
   });
 
   if (dashboardQuery.isLoading) return <PageSkeleton />;
   if (dashboardQuery.isError || !dashboardQuery.data) {
     return (
-      <div className="space-y-6">
-        <PageHeader title="Dashboard" description="Your daily command centre." />
-        <EmptyState
-          icon={<RefreshCw className="h-5 w-5" />}
-          title="We could not load your dashboard"
-          description={
-            dashboardQuery.error instanceof Error
-              ? dashboardQuery.error.message
-              : 'Please retry in a moment.'
-          }
-          action={<Button onClick={() => dashboardQuery.refetch()}>Try again</Button>}
-        />
-      </div>
+      <EmptyState
+        icon={<RefreshCw className="h-5 w-5" />}
+        title="We couldn't load your dashboard"
+        description={
+          dashboardQuery.error instanceof Error ? dashboardQuery.error.message : 'Try again.'
+        }
+        action={<Button onClick={() => dashboardQuery.refetch()}>Try again</Button>}
+      />
     );
   }
 
-  const dashboard = dashboardQuery.data;
-  const stats = statsQuery.data;
-  const metrics = dashboard.metrics;
-  const reconciliation = dashboard.reconciliation;
-  const critical = dashboard.critical_dispute;
+  const d = dashboardQuery.data;
+  const m = d.metrics;
+  const business = merchantQuery.data?.business_name;
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        eyebrow="Today"
-        title="Your disputes, under control"
-        description="A live view of reconciliation, dispute deadlines and the evidence behind every payment."
-        actions={
-          <>
-            <Link href="/fulfillments/new">
-              <Button variant="outline">
-                <Camera className="h-4 w-4" /> Log fulfillment
-              </Button>
-            </Link>
-            <Link href="/reconciliation">
-              <Button>
-                <CheckCircle2 className="h-4 w-4" /> Reconcile payments
-              </Button>
-            </Link>
-          </>
-        }
-      />
-
-      {critical ? (
-        <div className="relative overflow-hidden rounded-2xl bg-ink-950 p-5 text-white shadow-float sm:p-6">
-          <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-red-500/20 blur-3xl" />
-          <div className="relative flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
-            <div className="flex items-start gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-500/20 text-red-300 ring-1 ring-inset ring-red-400/30">
-                <ShieldAlert className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-red-300">
-                    Dispute requires attention
-                  </p>
-                  <Countdown
-                    dueAt={critical.due_at}
-                    serverTime={dashboard.server_time}
-                    className="ring-0"
-                  />
-                </div>
-                <p className="mt-1.5 text-xl font-semibold tracking-[-0.03em]">
-                  {formatMoney(critical.amount, critical.currency)}
-                  <span className="ml-2 text-sm font-normal text-ink-300">
-                    {critical.customer_name ?? critical.paystack_dispute_id}
-                  </span>
-                </p>
-              </div>
-            </div>
-            <Link href={`/disputes/${critical.id}`}>
-              <Button className="w-full bg-white text-ink-950 hover:bg-ink-100 sm:w-auto">
-                Review evidence <ArrowRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-        </div>
+    <div className="space-y-5">
+      {d.critical_dispute ? (
+        <CriticalBanner dispute={d.critical_dispute} serverTime={d.server_time} />
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+        <div>
+          <h1 className="text-[22px] font-semibold tracking-[-0.02em] text-ink-950">
+            {greeting()}
+            {business ? `, ${business}` : ''}
+          </h1>
+          <p className="mt-0.5 text-[13px] text-ink-500">
+            Here&apos;s what&apos;s happening with your business.
+          </p>
+        </div>
+        <Select
+          value={days}
+          onChange={(event) => setDays(Number(event.target.value) as typeof days)}
+          className="h-9 w-auto py-1.5 text-[13px]"
+          aria-label="Period"
+        >
+          {PERIODS.map((value) => (
+            <option key={value} value={value}>
+              Last {value} days
+            </option>
+          ))}
+        </Select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <StatCard
+          label="Transactions"
+          value={m.transactions ? m.transactions.count.toLocaleString() : '—'}
+          delta={m.transactions?.delta_pct}
+          detail={
+            m.transactions ? `${m.transactions.successful.toLocaleString()} successful` : undefined
+          }
+          icon={<ArrowLeftRight />}
+          tone="brand"
+          href="/transactions"
+        />
         <StatCard
           label="Open disputes"
-          value={stats?.open ?? metrics.disputes?.open ?? 0}
-          icon={<ShieldAlert className="h-4 w-4" />}
-          tone={metrics.disputes?.critical ? 'danger' : 'default'}
+          value={m.disputes?.open ?? '—'}
           detail={
-            metrics.disputes?.critical
-              ? `${metrics.disputes.critical} inside the 4-hour window`
-              : 'No disputes inside the critical window'
+            m.disputes?.critical ? (
+              <span className="text-red-600">{m.disputes.critical} critical</span>
+            ) : (
+              'None critical'
+            )
           }
+          icon={<ShieldAlert />}
+          tone={m.disputes?.critical ? 'danger' : 'default'}
+          href="/disputes?status=pending"
         />
         <StatCard
-          label="Dispute win rate"
-          value={percent(stats?.win_rate, 0)}
-          icon={<TrendingUp className="h-4 w-4" />}
-          tone="brand"
-          detail={`${stats?.won ?? 0} won · ${stats?.lost ?? 0} lost`}
-        />
-        <StatCard
-          label="Reconciliation rate"
-          value={percent(metrics.reconciliation?.matched_pct, 0)}
-          icon={<ListChecks className="h-4 w-4" />}
-          detail={`${reconciliation?.needs_review ?? 0} payments need review`}
-          delta={metrics.reconciliation?.delta_pct}
-        />
-        <StatCard
-          label="Evidence readiness"
-          value={metrics.readiness?.score ?? '—'}
-          icon={<ShieldCheck className="h-4 w-4" />}
-          tone={metrics.readiness?.label === 'vulnerable' ? 'amber' : 'default'}
+          label="Dispute readiness"
+          value={m.readiness?.score !== null && m.readiness ? `${m.readiness.score}%` : '—'}
           detail={
-            metrics.readiness?.label
-              ? titleCase(metrics.readiness.label)
-              : 'Match payments to orders to score readiness'
+            m.readiness?.distribution?.vulnerable ? (
+              <span className="text-amber-600">
+                {m.readiness.distribution.vulnerable}% vulnerable
+              </span>
+            ) : (
+              'Of matched payments'
+            )
           }
+          icon={<ShieldCheck />}
+          tone="success"
+          href="/transactions?reconciliation_status=auto_matched"
+        />
+        <StatCard
+          label="Payments matched"
+          value={percent(m.reconciliation?.matched_pct)}
+          delta={m.reconciliation?.delta_pct}
+          detail={
+            m.reconciliation?.unmatched ? `${m.reconciliation.unmatched} unmatched` : 'All matched'
+          }
+          icon={<CircleCheck />}
+          tone="amber"
+          href="/reconciliation"
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.45fr_1fr]">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader
-              title="Reconciliation quick view"
-              description="Payments synced and matched since the start of today."
-              action={
-                <Link href="/reconciliation">
-                  <Button variant="outline" size="sm">
-                    Open workspace <ArrowRight className="h-3.5 w-3.5" />
-                  </Button>
-                </Link>
-              }
-            />
-            <CardBody className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-xl bg-ink-50 px-4 py-3.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-500">
-                  Synced today
-                </p>
-                <p className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-ink-950">
-                  {reconciliation?.synced_today ?? 0}
-                </p>
-                <p className="mt-0.5 text-[11px] text-ink-400">Paystack transactions</p>
-              </div>
-              <div className="rounded-xl bg-brand-50 px-4 py-3.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-700">
-                  Matched today
-                </p>
-                <p className="mt-1 text-2xl font-semibold tracking-[-0.03em] text-brand-900">
-                  {reconciliation?.matched_today ?? 0}
-                </p>
-                <p className="mt-0.5 text-[11px] text-brand-600">Linked to orders</p>
-              </div>
-              <div
-                className={cn(
-                  'rounded-xl px-4 py-3.5',
-                  reconciliation?.needs_review ? 'bg-amber-50' : 'bg-ink-50',
-                )}
-              >
-                <p
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.75fr_1fr]">
+        <Card>
+          <div className="flex items-center justify-between gap-3 px-5 pt-4">
+            <h2 className="text-[14px] font-semibold text-ink-900">
+              {chart === 'disputes' ? 'Dispute activity' : 'Match rate'}
+            </h2>
+            <div className="flex rounded-md bg-ink-100 p-0.5 text-[12px]">
+              {(['disputes', 'reconciliation'] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setChart(value)}
                   className={cn(
-                    'text-[11px] font-semibold uppercase tracking-[0.08em]',
-                    reconciliation?.needs_review ? 'text-amber-700' : 'text-ink-500',
+                    'rounded px-2.5 py-1 font-medium transition',
+                    chart === value ? 'bg-brand-600 text-white' : 'text-ink-600 hover:text-ink-900',
                   )}
                 >
-                  Needs review
-                </p>
-                <p
-                  className={cn(
-                    'mt-1 text-2xl font-semibold tracking-[-0.03em]',
-                    reconciliation?.needs_review ? 'text-amber-900' : 'text-ink-950',
-                  )}
-                >
-                  {reconciliation?.needs_review ?? 0}
-                </p>
-                <p
-                  className={cn(
-                    'mt-0.5 text-[11px]',
-                    reconciliation?.needs_review ? 'text-amber-600' : 'text-ink-400',
-                  )}
-                >
-                  {reconciliation?.last_completed_at
-                    ? `Last completed ${timeAgo(reconciliation.last_completed_at)}`
-                    : 'No completed session yet'}
-                </p>
-              </div>
-            </CardBody>
-          </Card>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-              <CardHeader title="Dispute activity" description="Opened vs won over 30 days" />
-              <CardBody className="pt-2">
-                <DisputeChart data={timelineQuery.data} />
-              </CardBody>
-            </Card>
-            <Card>
-              <CardHeader title="Match rate" description="Daily reconciliation health" />
-              <CardBody className="pt-2">
-                <ReconciliationChart data={healthQuery.data} />
-              </CardBody>
-            </Card>
+                  {value === 'disputes' ? 'Disputes' : 'Reconciliation'}
+                </button>
+              ))}
+            </div>
           </div>
-
-          <Card>
-            <CardHeader
-              title="Recent disputes"
-              description="Sorted by the newest first; deadlines are live."
-              action={
-                <Link href="/disputes">
-                  <Button variant="ghost" size="sm">
-                    View all <ArrowRight className="h-3.5 w-3.5" />
-                  </Button>
-                </Link>
-              }
-            />
-            {dashboard.recent_disputes?.length ? (
-              <div className="divide-y divide-line">
-                {dashboard.recent_disputes.slice(0, 4).map((dispute) => (
-                  <Link
-                    key={dispute.id}
-                    href={`/disputes/${dispute.id}`}
-                    className="flex flex-col gap-3 px-5 py-4 transition hover:bg-ink-50/60 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex min-w-0 items-start gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
-                        <Gavel className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-[13px] font-semibold text-ink-900">
-                            {formatMoney(dispute.amount, dispute.currency)}
-                          </p>
-                          <Badge tone={statusTone(dispute.status)}>
-                            {STATUS_LABELS[dispute.status]}
-                          </Badge>
-                          {dispute.category ? (
-                            <span className="text-[11px] text-ink-400">
-                              {CATEGORY_LABELS[dispute.category]}
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-1 truncate text-[12px] text-ink-500">
-                          {dispute.customer?.name ?? dispute.customer?.email ?? 'Customer'} ·{' '}
-                          {dispute.transaction_reference}
-                        </p>
-                      </div>
-                    </div>
-                    <Countdown dueAt={dispute.due_at} serverTime={dashboard.server_time} />
-                  </Link>
-                ))}
-              </div>
+          <div className="px-3 pb-3 pt-2">
+            {chart === 'disputes' ? (
+              <DisputeChart data={timelineQuery.data} />
             ) : (
-              <div className="p-5">
-                <EmptyState
-                  icon={<ShieldCheck className="h-5 w-5" />}
-                  title="No disputes yet"
-                  description="When a chargeback arrives, it will appear here with its evidence readiness."
-                />
-              </div>
+              <ReconciliationChart data={healthQuery.data} />
             )}
-          </Card>
-        </div>
+          </div>
+        </Card>
 
-        <div className="space-y-6">
-          <Card className="overflow-hidden">
-            <div className="bg-ink-950 px-5 py-5 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-brand-300" />
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-300">
-                    TrustLayer
-                  </p>
-                </div>
-                <span
-                  className={cn(
-                    'rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ring-1 ring-inset',
-                    dashboard.trust
-                      ? TRUST_TONE[dashboard.trust.state]
-                      : 'bg-white/10 text-ink-200 ring-white/10',
-                  )}
-                >
-                  {dashboard.trust ? TRUST_LABELS[dashboard.trust.state] : 'Not computed'}
-                </span>
-              </div>
-              <p className="mt-4 text-2xl font-semibold tracking-[-0.03em]">
-                {dashboard.trust?.label ?? 'Build your public proof'}
+        <TrustCard trust={d.trust} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="flex flex-col p-5">
+          <h2 className="text-[14px] font-semibold text-ink-900">Reconciliation</h2>
+          {d.reconciliation ? (
+            <>
+              <p className="mt-1.5 text-[12px] text-ink-500">
+                {d.reconciliation.synced_today} synced today · {d.reconciliation.matched_today}{' '}
+                matched ·{' '}
+                <Link href="/reconciliation" className="link">
+                  {d.reconciliation.needs_review} need review
+                </Link>
               </p>
-              <p className="mt-1.5 text-[12px] leading-5 text-ink-300">
-                {dashboard.trust?.updated_at
-                  ? `Last updated ${timeAgo(dashboard.trust.updated_at)}`
-                  : 'Complete reconciliation and fulfillment to unlock your trust profile.'}
+              <div className="mt-4">
+                <Link href="/reconciliation">
+                  <Button size="sm">Start reconciliation</Button>
+                </Link>
+              </div>
+              <p className="mt-auto pt-4 text-[11px] text-ink-400">
+                {d.reconciliation.last_completed_at
+                  ? `Last completed ${timeAgo(d.reconciliation.last_completed_at)}`
+                  : 'No session completed yet'}
+              </p>
+            </>
+          ) : (
+            <p className="mt-2 text-[12px] text-ink-400">Unavailable right now.</p>
+          )}
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="text-[14px] font-semibold text-ink-900">Dispute readiness</h2>
+          {m.readiness && m.readiness.score !== null ? (
+            <div className="mt-3 flex items-center gap-4">
+              <ScoreRing score={m.readiness.score} />
+              <ul className="space-y-1 text-[12px]">
+                <li className="text-emerald-600">
+                  {m.readiness.distribution.well_defended ?? 0}% well-defended
+                </li>
+                <li className="text-amber-600">
+                  {m.readiness.distribution.moderate ?? 0}% moderate
+                </li>
+                <li>
+                  <Link
+                    href="/transactions?reconciliation_status=auto_matched"
+                    className="inline-flex items-center gap-0.5 text-red-600 hover:underline"
+                  >
+                    {m.readiness.distribution.vulnerable ?? 0}% vulnerable
+                    <ChevronRight className="h-3 w-3" />
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          ) : (
+            <p className="mt-2 text-[12px] leading-5 text-ink-500">
+              Scored once payments are matched to orders.
+            </p>
+          )}
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="text-[14px] font-semibold text-ink-900">Needs your attention</h2>
+          {d.prompts?.length ? (
+            <ul className="mt-2 divide-y divide-line">
+              {d.prompts.slice(0, 3).map((prompt) => (
+                <li key={prompt.order_id} className="py-2.5 first:pt-1">
+                  <p className="text-[12px] leading-5 text-ink-600">
+                    <Link href={href.order(prompt.order_id)} className="link">
+                      Order {prompt.order_number ?? 'without number'}
+                    </Link>{' '}
+                    was paid {formatMoney(prompt.amount, prompt.currency)}. Has it been fulfilled?
+                  </p>
+                  <Link href={href.logFulfillment(prompt.order_id)}>
+                    <Button
+                      size="sm"
+                      className="mt-2 bg-emerald-600 text-white hover:brightness-95 dark:bg-emerald-500"
+                    >
+                      <Camera className="h-3.5 w-3.5" /> Log fulfillment
+                    </Button>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-[12px] text-ink-500">You&apos;re all caught up.</p>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
+        <RecentTransactions rows={d.recent_transactions} />
+        <RecentDisputes rows={d.recent_disputes} serverTime={d.server_time} />
+      </div>
+
+      {d.activity?.length ? (
+        <Card>
+          <div className="px-5 pt-4">
+            <h2 className="text-[14px] font-semibold text-ink-900">Activity</h2>
+          </div>
+          <ul className="divide-y divide-line px-5 pb-2 pt-2">
+            {d.activity.slice(0, 8).map((item) => {
+              const Icon = activityIcons[item.type];
+              const target = activityHref(item);
+              const body = (
+                <>
+                  <Icon className="h-4 w-4 shrink-0 text-ink-400" />
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink-700">
+                    {item.title}
+                  </span>
+                  <span className="shrink-0 text-[11px] text-ink-400">
+                    {timeAgo(item.occurred_at)}
+                  </span>
+                </>
+              );
+              return (
+                <li key={`${item.type}-${item.occurred_at}`}>
+                  {target ? (
+                    <Link
+                      href={target}
+                      className="-mx-2 flex items-center gap-3 rounded-md px-2 py-2.5 hover:bg-ink-50"
+                    >
+                      {body}
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-3 py-2.5">{body}</div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      ) : null}
+    </div>
+  );
+}
+
+function CriticalBanner({
+  dispute,
+  serverTime,
+}: {
+  dispute: NonNullable<Dashboard['critical_dispute']>;
+  serverTime: string;
+}) {
+  const remaining = useRemaining(dispute.due_at, serverTime);
+  return (
+    <div className="flex flex-col gap-3 rounded-lg bg-red-600 px-4 py-3 text-white dark:bg-red-500/90 sm:flex-row sm:items-center">
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-[13px] font-medium">
+        <AlertTriangle className="h-4 w-4 shrink-0" />
+        <span className="uppercase tracking-[0.04em]">Dispute requires attention</span>
+        <span className="text-white/70">·</span>
+        <span>{formatMoney(dispute.amount, dispute.currency)}</span>
+        {dispute.customer_name ? (
+          <>
+            <span className="text-white/70">·</span>
+            <span>{dispute.customer_name}</span>
+          </>
+        ) : null}
+        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold tabular-nums text-red-600">
+          {clockLabel(remaining)} remaining
+        </span>
+      </div>
+      <Link
+        href={href.dispute(dispute.id)}
+        className="inline-flex items-center gap-1 self-start rounded-md bg-white px-3 py-1.5 text-[12px] font-semibold text-red-600 hover:bg-red-50 sm:self-auto"
+      >
+        Review now <ArrowRight className="h-3.5 w-3.5" />
+      </Link>
+    </div>
+  );
+}
+
+function TrustCard({ trust }: { trust: Dashboard['trust'] }) {
+  const verified = trust?.state === 'verified';
+  return (
+    <Card className="flex flex-col p-5">
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="text-[14px] font-semibold text-ink-900">TrustLayer status</h2>
+        {trust ? (
+          <Badge tone={statusTone(trust.state)} dot>
+            {TRUST_LABELS[trust.state]}
+          </Badge>
+        ) : null}
+      </div>
+      {trust ? (
+        <>
+          <div className="mt-4 flex items-start gap-3">
+            <ShieldCheck
+              className={cn('h-8 w-8 shrink-0', verified ? 'text-emerald-600' : 'text-ink-400')}
+            />
+            <div>
+              <p className="text-[13px] font-semibold text-ink-900">{trust.label}</p>
+              <p className="text-[11px] text-ink-500">
+                {trust.updated_at
+                  ? `Updated ${formatDateTime(trust.updated_at)}`
+                  : 'Not computed yet'}
               </p>
             </div>
-            <CardBody className="space-y-3">
-              <Link
-                href="/trust"
-                className="flex items-center justify-between rounded-xl border border-line px-3.5 py-3 text-[13px] font-semibold text-ink-700 transition hover:bg-ink-50"
-              >
-                View trust profile <ArrowRight className="h-4 w-4" />
-              </Link>
-              {dashboard.trust?.state === 'verified' ? (
-                <p className="text-[12px] leading-5 text-ink-500">
-                  Your public verification page is ready to share with customers.
-                </p>
-              ) : (
-                <p className="text-[12px] leading-5 text-ink-500">
-                  Six operational signals determine your state. TrustLayer explains exactly what to
-                  improve next.
-                </p>
-              )}
-            </CardBody>
-          </Card>
+          </div>
+          <ul className="mt-4 space-y-2 text-[12px] text-ink-600">
+            {[
+              'Payment history',
+              'Fulfillment activity',
+              'Dispute handling',
+              'Operational consistency',
+            ].map((signal) => (
+              <li key={signal} className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-ink-300" /> {signal}
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p className="mt-3 text-[12px] text-ink-500">
+          Your trust profile is created the first time you open TrustLayer.
+        </p>
+      )}
+      <Link
+        href="/trust"
+        className="mt-auto inline-flex items-center gap-1 pt-4 text-[12px] font-medium text-brand-600 hover:underline"
+      >
+        See what could improve it <ChevronRight className="h-3.5 w-3.5" />
+      </Link>
+    </Card>
+  );
+}
 
-          {dashboard.prompts?.length ? (
-            <Card>
-              <CardHeader
-                title="Awaiting fulfillment"
-                description="Paid orders without evidence. Capture it now."
-              />
-              <div className="divide-y divide-line">
-                {dashboard.prompts.slice(0, 3).map((prompt) => (
-                  <div key={prompt.order_id} className="flex items-center gap-3 px-5 py-3.5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
-                      <ShoppingBag className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[12px] font-semibold text-ink-900">
-                        Order {prompt.order_number ?? '—'}
-                      </p>
-                      <p className="text-[11px] text-ink-400">
-                        {formatMoney(prompt.amount, prompt.currency)} paid
-                      </p>
-                    </div>
-                    <Link href={`/fulfillments/new?order=${prompt.order_id}`}>
-                      <Button size="sm" variant="secondary">
-                        Log
-                      </Button>
-                    </Link>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          ) : null}
-
-          <Card>
-            <CardHeader title="Recent activity" description="The last events in your workspace" />
-            {dashboard.activity?.length ? (
-              <div className="space-y-1 p-3">
-                {dashboard.activity.slice(0, 7).map((item, index) => {
-                  const Icon = activityIcons[item.type] ?? Activity;
-                  const href =
-                    item.link.type === 'dispute' && item.link.id
-                      ? `/disputes/${item.link.id}`
-                      : item.link.type === 'order' && item.link.id
-                        ? `/orders/${item.link.id}`
-                        : item.link.type === 'reconciliation_session' && item.link.id
-                          ? `/reconciliation/session/${item.link.id}`
-                          : '/trust';
-                  return (
-                    <Link
-                      key={`${item.type}-${item.occurred_at}-${index}`}
-                      href={href}
-                      className="flex items-start gap-3 rounded-xl px-2 py-2.5 transition hover:bg-ink-50"
-                    >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-500">
-                        <Icon className="h-3.5 w-3.5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[12px] font-medium leading-5 text-ink-700">
-                          {item.title}
-                        </p>
-                        <p className="text-[10px] text-ink-400">{timeAgo(item.occurred_at)}</p>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="px-5 py-8 text-center text-[13px] text-ink-400">No activity yet</div>
-            )}
-          </Card>
-        </div>
-      </div>
-
-      <Card>
-        <CardHeader
-          title="Recent payments"
-          description={`Activity for ${formatDate(dashboard.period.date_from)} – ${formatDate(dashboard.period.date_to)}`}
-          action={
-            <Link href="/reconciliation">
-              <Button variant="outline" size="sm">
-                All payments
-              </Button>
-            </Link>
-          }
+function ScoreRing({ score }: { score: number }) {
+  const radius = 30;
+  const circumference = 2 * Math.PI * radius;
+  const tone = score >= 70 ? 'text-emerald-500' : score >= 40 ? 'text-amber-500' : 'text-red-500';
+  return (
+    <div className="relative h-20 w-20 shrink-0">
+      <svg viewBox="0 0 72 72" className="h-20 w-20 -rotate-90">
+        <circle cx="36" cy="36" r={radius} fill="none" strokeWidth="7" className="stroke-ink-100" />
+        <circle
+          cx="36"
+          cy="36"
+          r={radius}
+          fill="none"
+          strokeWidth="7"
+          strokeLinecap="round"
+          stroke="currentColor"
+          className={tone}
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - score / 100)}
         />
-        {dashboard.recent_transactions?.length ? (
-          <div className="overflow-x-auto">
-            <table className="table-base">
-              <thead>
-                <tr>
-                  <th>Payment</th>
-                  <th>Customer</th>
-                  <th>Amount</th>
-                  <th>Order</th>
-                  <th>Reconciliation</th>
-                  <th>Paid</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dashboard.recent_transactions.slice(0, 6).map((transaction) => (
-                  <tr key={transaction.id}>
-                    <td>
-                      <p className="font-mono text-[12px] font-semibold text-ink-900">
-                        {transaction.reference}
-                      </p>
-                      <p className="mt-0.5 text-[11px] capitalize text-ink-400">
-                        {transaction.channel.replace(/_/g, ' ')}
-                      </p>
-                    </td>
-                    <td>
-                      <div className="flex items-center gap-2.5">
-                        <Avatar
-                          name={transaction.customer_name ?? transaction.customer_email}
-                          size="sm"
-                        />
-                        <div>
-                          <p className="text-[12px] font-medium text-ink-800">
-                            {transaction.customer_name ?? 'Unknown'}
-                          </p>
-                          <p className="text-[11px] text-ink-400">
-                            {transaction.customer_email ?? '—'}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="font-semibold text-ink-900">
-                      {formatMoney(transaction.amount, transaction.currency)}
-                    </td>
-                    <td>{transaction.order?.order_number ?? '—'}</td>
-                    <td>
-                      <Badge
-                        tone={
-                          transaction.reconciliation_status === 'unmatched'
-                            ? 'warning'
-                            : transaction.reconciliation_status === 'flagged'
-                              ? 'danger'
-                              : 'success'
-                        }
-                      >
-                        {RECONCILIATION_LABELS[transaction.reconciliation_status]}
-                      </Badge>
-                    </td>
-                    <td className="text-[12px] text-ink-500">
-                      {transaction.paid_at ? timeAgo(transaction.paid_at) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="p-5">
-            <EmptyState
-              icon={<CircleDollarSign className="h-5 w-5" />}
-              title="No payments synced yet"
-              description="Connect Paystack and sync transactions to start reconciling."
-              action={
-                <Link href="/settings#paystack">
-                  <Button variant="outline">Connect Paystack</Button>
-                </Link>
-              }
-            />
-          </div>
-        )}
-      </Card>
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        {[
-          {
-            label: 'Transactions',
-            value: metrics.transactions?.successful ?? 0,
-            icon: CircleDollarSign,
-          },
-          { label: 'Customers', value: null, icon: Users },
-          { label: 'Orders', value: null, icon: ShoppingBag },
-        ].map((item) => (
-          <div
-            key={item.label}
-            className="flex items-center gap-3 rounded-2xl border border-line bg-white/60 px-4 py-3"
-          >
-            <item.icon className="h-4 w-4 text-ink-400" />
-            <p className="text-[12px] text-ink-500">
-              {item.value !== null ? `${item.value} successful ` : ''}
-              {item.label.toLowerCase()} in this period
-            </p>
-          </div>
-        ))}
-      </div>
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-[17px] font-semibold text-ink-950">
+        {score}%
+      </span>
     </div>
+  );
+}
+
+function RecentTransactions({ rows }: { rows: Transaction[] | null }) {
+  const router = useRouter();
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between px-5 pb-2 pt-4">
+        <h2 className="text-[14px] font-semibold text-ink-900">Recent transactions</h2>
+        <Link href="/transactions" className="link text-[12px]">
+          View all
+        </Link>
+      </div>
+      {rows?.length ? (
+        <div className="overflow-x-auto">
+          <table className="table-base">
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Customer</th>
+                <th>Amount</th>
+                <th>Channel</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((t) => (
+                <tr
+                  key={t.id}
+                  className="row-link"
+                  onClick={() => router.push(href.transaction(t.reference))}
+                >
+                  <td>
+                    <Link
+                      href={href.transaction(t.reference)}
+                      className="font-mono text-[12px] text-ink-900 hover:text-brand-600"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      {t.reference}
+                    </Link>
+                  </td>
+                  <td className="whitespace-nowrap text-[13px]">
+                    {t.customer ? (
+                      <Link
+                        href={href.customer(t.customer.id)}
+                        className="text-ink-800 hover:text-brand-600 hover:underline"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {t.customer.name ?? t.customer.email ?? t.customer_name ?? 'Customer'}
+                      </Link>
+                    ) : (
+                      (t.customer_name ?? t.customer_email ?? '—')
+                    )}
+                  </td>
+                  <td className="font-medium tabular-nums text-ink-900">
+                    {formatMoney(t.amount, t.currency)}
+                  </td>
+                  <td className="whitespace-nowrap text-[12px]">{channelLabel(t.channel)}</td>
+                  <td>
+                    <Badge tone={statusTone(t.status)} dot>
+                      {TRANSACTION_LABELS[t.status]}
+                    </Badge>
+                  </td>
+                  <td className="whitespace-nowrap text-[12px] text-ink-500">
+                    {t.paid_at ? `${timeAgo(t.paid_at)}, ${formatTime(t.paid_at)}` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="px-5 pb-5 text-[12px] text-ink-500">No payments in this period.</p>
+      )}
+    </Card>
+  );
+}
+
+function RecentDisputes({
+  rows,
+  serverTime,
+}: {
+  rows: DisputeSummary[] | null;
+  serverTime: string;
+}) {
+  return (
+    <Card>
+      <div className="flex items-center justify-between px-5 pb-1 pt-4">
+        <h2 className="text-[14px] font-semibold text-ink-900">Recent disputes</h2>
+        <Link href="/disputes" className="link text-[12px]">
+          View all
+        </Link>
+      </div>
+      {rows?.length ? (
+        <ul className="divide-y divide-line px-5 pb-2">
+          {rows.map((dispute) => {
+            const open = dispute.status === 'pending' || dispute.status === 'evidence_generated';
+            return (
+              <li key={dispute.id}>
+                <Link
+                  href={href.dispute(dispute.id)}
+                  className="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 hover:bg-ink-50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-ink-900">
+                      {dispute.reason ??
+                        (dispute.category ? CATEGORY_LABELS[dispute.category] : 'Dispute')}
+                    </p>
+                    <p className="truncate text-[11px] text-ink-500">
+                      {dispute.paystack_dispute_id} ·{' '}
+                      {formatMoney(dispute.amount, dispute.currency)}
+                      {dispute.customer?.name ? ` · ${dispute.customer.name}` : ''}
+                    </p>
+                  </div>
+                  {open ? (
+                    <Countdown dueAt={dispute.due_at} serverTime={serverTime} compact />
+                  ) : (
+                    <Badge tone={statusTone(dispute.status)} dot>
+                      {STATUS_LABELS[dispute.status]}
+                    </Badge>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="px-5 pb-5 text-[12px] text-ink-500">No disputes. Keep it that way.</p>
+      )}
+    </Card>
   );
 }

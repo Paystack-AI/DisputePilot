@@ -104,7 +104,7 @@ export default function AdminMerchantDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/admin/merchants/${merchant.id}/data`}
-              className="inline-flex h-9 items-center rounded-lg bg-ink-900 px-3 text-[13px] font-semibold text-white hover:bg-ink-800"
+              className="inline-flex h-9 items-center rounded-lg bg-navy px-3 text-[13px] font-semibold text-white hover:bg-ink-800"
             >
               Browse their data
             </Link>
@@ -133,7 +133,7 @@ export default function AdminMerchantDetailPage() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <MiniStat label="Transactions" value={merchant.stats.transaction_count} />
         <MiniStat label="Successful" value={merchant.stats.successful_transactions} />
         <MiniStat label="Orders" value={merchant.stats.order_count} />
@@ -146,7 +146,7 @@ export default function AdminMerchantDetailPage() {
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
         <Card>
           <CardHeader
             title="Trust profile"
@@ -156,7 +156,7 @@ export default function AdminMerchantDetailPage() {
           <CardBody className="space-y-4">
             {trust ? (
               <>
-                <div className="flex items-end justify-between gap-4 rounded-xl bg-ink-950 px-4 py-3.5 text-white">
+                <div className="flex items-end justify-between gap-4 rounded-xl bg-navy px-4 py-3.5 text-white">
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-400">
                       Internal score
@@ -330,7 +330,7 @@ export default function AdminMerchantDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Card className="overflow-hidden">
           <CardHeader
             title="Recent transactions"
@@ -483,7 +483,7 @@ export default function AdminMerchantDetailPage() {
         </CardBody>
       </Card>
 
-      <div className="flex flex-wrap gap-4 rounded-2xl border border-line bg-white px-4 py-3 text-[10px] text-ink-400">
+      <div className="flex flex-wrap gap-4 rounded-xl border border-line bg-surface px-4 py-3 text-[10px] text-ink-400">
         <span>Created {formatDate(merchant.created_at)}</span>
         <span>Updated {merchant.updated_at ? formatDateTime(merchant.updated_at) : '—'}</span>
         <span>Verified {merchant.is_verified ? 'yes' : 'no'}</span>
@@ -505,7 +505,7 @@ function MiniStat({
   tone?: 'default' | 'amber';
 }) {
   return (
-    <div className="rounded-xl border border-line bg-white px-3.5 py-3">
+    <div className="rounded-xl border border-line bg-surface px-3.5 py-3">
       <p className="text-[9px] font-semibold uppercase tracking-[0.08em] text-ink-400">{label}</p>
       <p
         className={cn(

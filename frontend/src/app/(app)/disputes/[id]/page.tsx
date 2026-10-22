@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { href } from '@/lib/links';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
@@ -239,12 +240,24 @@ export default function DisputeDetailPage() {
               </span>
             ) : null}
           </div>
-          <h1 className="mt-3 text-[32px] font-semibold tracking-[-0.04em] text-ink-950">
+          <h1 className="mt-3 text-[24px] font-semibold tracking-[-0.04em] text-ink-950">
             {formatMoney(detail.amount, detail.currency)}
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            {detail.customer?.name ?? detail.customer?.email ?? 'Customer'} ·{' '}
-            <span className="font-mono text-[12px]">{detail.transaction_reference}</span>
+            {detail.customer ? (
+              <Link href={href.customer(detail.customer.id)} className="link">
+                {detail.customer.name ?? detail.customer.email ?? 'Customer'}
+              </Link>
+            ) : (
+              'Customer'
+            )}{' '}
+            ·{' '}
+            <Link
+              href={href.transaction(detail.transaction_reference)}
+              className="link font-mono text-[12px]"
+            >
+              {detail.transaction_reference}
+            </Link>
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -304,7 +317,7 @@ export default function DisputeDetailPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.5fr_1fr]">
         <div className="space-y-6">
           <Card>
             <CardHeader
@@ -390,7 +403,7 @@ export default function DisputeDetailPage() {
                   {documents.map((document) => (
                     <div
                       key={document.file_id}
-                      className="group relative overflow-hidden rounded-xl border border-line bg-ink-50"
+                      className="group relative overflow-hidden rounded-xl border border-brand-200 bg-ink-50"
                     >
                       {document.source === 'merchant' ? (
                         <AuthImage
@@ -406,7 +419,7 @@ export default function DisputeDetailPage() {
                           <ImagePlus className="h-5 w-5" />
                         </div>
                       )}
-                      <div className="border-t border-line bg-white px-2.5 py-2">
+                      <div className="border-t border-line bg-surface px-2.5 py-2">
                         <p className="truncate text-[10px] font-medium text-ink-700">
                           {document.file_name}
                         </p>
@@ -417,7 +430,7 @@ export default function DisputeDetailPage() {
                       {editable && document.source === 'merchant' ? (
                         <button
                           type="button"
-                          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-danger opacity-0 shadow transition group-hover:opacity-100"
+                          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-surface/90 text-danger opacity-0 shadow transition group-hover:opacity-100"
                           onClick={() =>
                             setDocuments((current) =>
                               current.filter((item) => item.file_id !== document.file_id),
@@ -438,7 +451,7 @@ export default function DisputeDetailPage() {
                       'mt-3 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-4 py-6 text-center transition',
                       isDragActive
                         ? 'border-brand-400 bg-brand-50'
-                        : 'border-ink-200 bg-white hover:border-brand-300 hover:bg-brand-50/30',
+                        : 'border-line bg-surface hover:border-brand-300 hover:bg-brand-50/30',
                     )}
                   >
                     <input {...getInputProps()} />
@@ -519,7 +532,12 @@ export default function DisputeDetailPage() {
             />
             <DetailRow label="Paid" value={formatDateTime(evidence.transaction_receipt.paid_at)} />
             <DetailRow label="Channel" value={titleCase(evidence.transaction_receipt.channel)} />
-            <DetailRow label="Reference" value={evidence.transaction_receipt.reference} mono />
+            <DetailRow
+              label="Reference"
+              value={evidence.transaction_receipt.reference}
+              mono
+              to={href.transaction(evidence.transaction_receipt.reference)}
+            />
             <DetailRow
               label="Customer"
               value={
@@ -527,13 +545,18 @@ export default function DisputeDetailPage() {
                 evidence.transaction_receipt.customer_email ??
                 '—'
               }
+              to={detail.customer ? href.customer(detail.customer.id) : undefined}
             />
           </ContextCard>
 
           <ContextCard title="Order" icon={<PackageCheck className="h-4 w-4" />}>
             {evidence.order_details ? (
               <>
-                <DetailRow label="Order" value={evidence.order_details.order_number ?? '—'} />
+                <DetailRow
+                  label="Order"
+                  value={evidence.order_details.order_number ?? 'View order'}
+                  to={href.transaction(detail.transaction_reference)}
+                />
                 <DetailRow label="Description" value={evidence.order_details.description ?? '—'} />
                 <DetailRow
                   label="Amount"
@@ -782,18 +805,33 @@ function ContextCard({
   );
 }
 
-function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function DetailRow({
+  label,
+  value,
+  mono,
+  to,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  // the record this value is, when it has its own page
+  to?: string;
+}) {
+  const classes = cn(
+    'max-w-[62%] text-right font-medium text-ink-800',
+    mono && 'font-mono text-[11px]',
+    to && 'text-brand-600 hover:underline',
+  );
   return (
     <div className="flex items-start justify-between gap-4 text-[12px]">
       <span className="text-ink-500">{label}</span>
-      <span
-        className={cn(
-          'max-w-[62%] text-right font-medium text-ink-800',
-          mono && 'font-mono text-[11px]',
-        )}
-      >
-        {value}
-      </span>
+      {to ? (
+        <Link href={to} className={classes}>
+          {value}
+        </Link>
+      ) : (
+        <span className={classes}>{value}</span>
+      )}
     </div>
   );
 }

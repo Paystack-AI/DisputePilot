@@ -28,7 +28,7 @@ export function Switch({
     >
       <span
         className={cn(
-          'absolute top-1 h-4 w-4 rounded-full bg-white shadow transition',
+          'absolute top-1 h-4 w-4 rounded-full bg-surface shadow transition',
           checked ? 'left-6' : 'left-1',
         )}
       />

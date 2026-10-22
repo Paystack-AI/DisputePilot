@@ -82,7 +82,7 @@ export default function FulfillmentDetailPage() {
               {fulfillment.transaction_id ? 'Payment linked' : 'No payment linked'}
             </Badge>
           </div>
-          <h1 className="mt-3 text-[32px] font-semibold tracking-[-0.04em] text-ink-950">
+          <h1 className="mt-3 text-[24px] font-semibold tracking-[-0.04em] text-ink-950">
             {titleCase(fulfillment.type)}
           </h1>
           <p className="mt-1 text-sm text-ink-500">
@@ -94,7 +94,7 @@ export default function FulfillmentDetailPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="space-y-6">
           <Card>
             <CardHeader title="Delivery details" />
@@ -283,7 +283,7 @@ function EditFulfillmentModal({
         </>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label htmlFor="type">Type</Label>
           <Select
@@ -354,7 +354,7 @@ function EditFulfillmentModal({
               <button
                 type="button"
                 onClick={() => setFiles((current) => current.filter((f) => f.id !== file.id))}
-                className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-ink-950/70 text-white hover:bg-ink-950"
+                className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white hover:bg-navy"
                 aria-label={`Remove ${file.file_name}`}
               >
                 <X className="h-3.5 w-3.5" />
@@ -368,7 +368,7 @@ function EditFulfillmentModal({
                 'flex h-24 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed text-[11px] font-semibold transition',
                 isDragActive
                   ? 'border-brand-400 bg-brand-50 text-brand-700'
-                  : 'border-ink-200 text-ink-500 hover:bg-ink-50',
+                  : 'border-line text-ink-500 hover:bg-ink-50',
               )}
             >
               <input {...getInputProps()} />

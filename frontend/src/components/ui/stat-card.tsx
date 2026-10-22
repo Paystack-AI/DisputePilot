@@ -1,6 +1,16 @@
+import Link from 'next/link';
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
+const iconTones = {
+  default: 'bg-ink-100 text-ink-500',
+  brand: 'bg-brand-50 text-brand-600',
+  danger: 'bg-red-50 text-red-600',
+  amber: 'bg-amber-50 text-amber-600',
+  success: 'bg-emerald-50 text-emerald-600',
+};
+
+/** A headline number. With href, the whole card opens the list behind the number */
 export function StatCard({
   label,
   value,
@@ -8,6 +18,7 @@ export function StatCard({
   icon,
   delta,
   tone = 'default',
+  href,
   className,
 }: {
   label: string;
@@ -15,45 +26,34 @@ export function StatCard({
   detail?: React.ReactNode;
   icon?: React.ReactNode;
   delta?: number | null;
-  tone?: 'default' | 'danger' | 'brand' | 'amber';
+  tone?: keyof typeof iconTones;
+  href?: string;
   className?: string;
 }) {
-  return (
-    <div
-      className={cn(
-        'surface group relative overflow-hidden p-5 transition hover:-translate-y-0.5 hover:shadow-float',
-        tone === 'danger' && 'border-red-200 bg-gradient-to-br from-white to-red-50/50',
-        tone === 'brand' && 'border-brand-200 bg-gradient-to-br from-white to-brand-50/60',
-        tone === 'amber' && 'border-amber-200 bg-gradient-to-br from-white to-amber-50/60',
-        className,
-      )}
-    >
+  const body = (
+    <>
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink-500">
-          {label}
-        </p>
+        <p className="text-[12px] text-ink-500">{label}</p>
         {icon ? (
-          <div
+          <span
             className={cn(
-              'flex h-9 w-9 items-center justify-center rounded-xl bg-ink-100 text-ink-500',
-              tone === 'danger' && 'bg-red-100 text-red-600',
-              tone === 'brand' && 'bg-brand-100 text-brand-700',
-              tone === 'amber' && 'bg-amber-100 text-amber-700',
+              'flex h-7 w-7 items-center justify-center rounded-md [&_svg]:h-3.5 [&_svg]:w-3.5',
+              iconTones[tone],
             )}
           >
             {icon}
-          </div>
+          </span>
         ) : null}
       </div>
-      <div className="mt-4 flex items-end gap-2">
-        <span className="text-[30px] font-semibold leading-none tracking-[-0.04em] text-ink-950">
-          {value}
-        </span>
+      <p className="mt-2 text-[26px] font-semibold leading-none tracking-[-0.02em] text-ink-950 tabular-nums">
+        {value}
+      </p>
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-2 text-[12px]">
         {delta !== undefined && delta !== null ? (
           <span
             className={cn(
-              'mb-0.5 inline-flex items-center gap-0.5 text-[12px] font-semibold',
-              delta >= 0 ? 'text-brand-700' : 'text-danger',
+              'inline-flex items-center gap-0.5 font-medium',
+              delta >= 0 ? 'text-emerald-600' : 'text-red-600',
             )}
           >
             {delta >= 0 ? (
@@ -64,8 +64,17 @@ export function StatCard({
             {Math.abs(delta).toFixed(1)}%
           </span>
         ) : null}
+        {detail ? <span className="text-ink-500">{detail}</span> : null}
       </div>
-      {detail ? <div className="mt-2 text-[12px] leading-5 text-ink-500">{detail}</div> : null}
-    </div>
+    </>
+  );
+
+  const classes = cn('surface block p-4', href && 'transition hover:border-ink-300', className);
+  return href ? (
+    <Link href={href} className={classes}>
+      {body}
+    </Link>
+  ) : (
+    <div className={classes}>{body}</div>
   );
 }

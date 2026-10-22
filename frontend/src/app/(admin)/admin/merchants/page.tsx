@@ -178,7 +178,7 @@ export default function AdminMerchantsPage() {
                       <td className="px-4 py-3.5">
                         <Link
                           href={`/admin/merchants/${merchant.id}`}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-300 hover:bg-white hover:text-ink-800"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-300 hover:bg-surface hover:text-ink-800"
                           aria-label={`Open ${merchant.business_name}`}
                         >
                           <ArrowRight className="h-3.5 w-3.5" />

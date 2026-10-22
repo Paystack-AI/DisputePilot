@@ -1,6 +1,7 @@
-import { ShieldCheck } from 'lucide-react';
+import Image from 'next/image';
 import { cn } from '@/lib/cn';
 
+/** The shield mark and the product name. light: on the navy sidebar or auth panel */
 export function Brand({
   light = false,
   compact = false,
@@ -12,29 +13,16 @@ export function Brand({
 }) {
   return (
     <div className={cn('flex items-center gap-2.5', className)}>
-      <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-white shadow-[0_8px_20px_-8px_rgba(32,164,108,0.8)]">
-        <ShieldCheck className="h-5 w-5" strokeWidth={2.2} />
-        <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-brand-500 bg-amber-300" />
-      </div>
+      <Image src="/logo.png" alt="DisputePilot" width={30} height={30} priority />
       {!compact ? (
-        <div>
-          <p
-            className={cn(
-              'text-[15px] font-semibold leading-5 tracking-[-0.03em]',
-              light ? 'text-white' : 'text-ink-950',
-            )}
-          >
-            DisputePilot
-          </p>
-          <p
-            className={cn(
-              'text-[10px] font-semibold uppercase tracking-[0.18em]',
-              light ? 'text-brand-300' : 'text-brand-700',
-            )}
-          >
-            TrustLayer
-          </p>
-        </div>
+        <span
+          className={cn(
+            'text-[15px] font-semibold tracking-[-0.02em]',
+            light ? 'text-white' : 'text-ink-900',
+          )}
+        >
+          DisputePilot
+        </span>
       ) : null}
     </div>
   );

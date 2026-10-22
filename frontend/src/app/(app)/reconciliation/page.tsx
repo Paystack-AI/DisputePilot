@@ -172,7 +172,7 @@ export default function ReconciliationPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="surface px-5 py-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-400">
             Synced today
@@ -203,7 +203,7 @@ export default function ReconciliationPage() {
         <Card>
           <CardBody className="py-12">
             <div className="mx-auto max-w-lg text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">
                 <Sparkles className="h-6 w-6" />
               </div>
               <h2 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-ink-950">
@@ -268,7 +268,7 @@ export default function ReconciliationPage() {
           />
 
           <div className="sticky bottom-4 z-10">
-            <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-ink-800 bg-ink-950 px-5 py-4 text-white shadow-float sm:flex-row sm:items-center">
+            <div className="flex flex-col items-start justify-between gap-3 rounded-xl border border-ink-800 bg-navy px-5 py-4 text-white shadow-float sm:flex-row sm:items-center">
               <div className="flex flex-wrap items-center gap-4 text-[12px]">
                 <span>
                   <span className="font-semibold text-brand-300">

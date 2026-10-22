@@ -13,14 +13,14 @@ export function GoogleButton({
 }) {
   return (
     <>
-      <div className="mb-4 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-400">
+      <div className="mb-4 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-400">
         <span className="h-px flex-1 bg-line" />
         or
         <span className="h-px flex-1 bg-line" />
       </div>
       <a
         href={`/api/proxy/auth/google?intent=${intent}`}
-        className="flex h-12 w-full items-center justify-center gap-2.5 rounded-xl bg-white text-[14px] font-semibold text-ink-800 ring-1 ring-inset ring-line transition hover:bg-ink-50"
+        className="flex h-12 w-full items-center justify-center gap-2.5 rounded-xl bg-surface text-[14px] font-semibold text-ink-800 ring-1 ring-inset ring-line transition hover:bg-ink-50"
       >
         <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden>
           <path

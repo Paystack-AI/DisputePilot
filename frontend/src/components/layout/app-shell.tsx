@@ -28,7 +28,7 @@ function OnboardingBanner() {
   if (!merchant || !onboarding || onboarding.completed || pathname === '/onboarding') return null;
 
   return (
-    <div className="mx-4 mt-4 flex flex-col items-start justify-between gap-3 rounded-2xl border border-brand-200 bg-brand-50 px-4 py-3.5 sm:mx-6 sm:flex-row sm:items-center lg:mx-8">
+    <div className="mx-4 mt-4 flex flex-col items-start justify-between gap-3 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 sm:mx-6 sm:flex-row sm:items-center lg:mx-8">
       <div className="flex items-start gap-3">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-white">
           <Rocket className="h-4 w-4" />
@@ -59,25 +59,15 @@ function LiveEvents() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { data: merchant } = useQuery({
-    queryKey: ['merchant', 'me'],
-    queryFn: () => apiRequest<Merchant>('/auth/me'),
-    staleTime: 5 * 60_000,
-  });
-
   return (
     <Protected>
       <LiveEvents />
       <div className="min-h-screen bg-canvas">
-        <Sidebar
-          businessName={merchant?.business_name}
-          mobileOpen={mobileOpen}
-          onClose={() => setMobileOpen(false)}
-        />
-        <div className="lg:pl-64">
+        <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
+        <div className="lg:pl-[var(--sidebar-width)]">
           <Topbar onMenu={() => setMobileOpen(true)} />
           <OnboardingBanner />
-          <main className="mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <main className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-8">
             {children}
           </main>
         </div>

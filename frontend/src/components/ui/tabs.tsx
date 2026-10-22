@@ -20,7 +20,7 @@ export function Tabs({
   className?: string;
 }) {
   return (
-    <div className={cn('flex gap-1 overflow-x-auto rounded-xl bg-ink-100 p-1', className)}>
+    <div className={cn('flex gap-1 overflow-x-auto', className)}>
       {items.map((item) => {
         const active = item.value === value;
         return (
@@ -29,8 +29,10 @@ export function Tabs({
             type="button"
             onClick={() => onChange(item.value)}
             className={cn(
-              'inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition',
-              active ? 'bg-white text-ink-900 shadow-sm' : 'text-ink-500 hover:text-ink-800',
+              'inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition',
+              active
+                ? 'bg-brand-600 text-white'
+                : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900',
             )}
           >
             {item.label}
@@ -38,7 +40,7 @@ export function Tabs({
               <span
                 className={cn(
                   'rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums',
-                  active ? 'bg-ink-100 text-ink-600' : 'bg-white/70 text-ink-500',
+                  active ? 'bg-white/20 text-white' : 'bg-ink-100 text-ink-500',
                 )}
               >
                 {item.count}

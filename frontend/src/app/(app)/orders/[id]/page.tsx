@@ -134,7 +134,7 @@ export default function OrderDetailPage() {
             </Badge>
             {order.resolution ? <Badge tone="info">{titleCase(order.resolution)}</Badge> : null}
           </div>
-          <h1 className="mt-3 text-[32px] font-semibold tracking-[-0.04em] text-ink-950">
+          <h1 className="mt-3 text-[24px] font-semibold tracking-[-0.04em] text-ink-950">
             Order {order.order_number ?? '—'}
           </h1>
           <p className="mt-1 text-sm text-ink-500">
@@ -186,7 +186,7 @@ export default function OrderDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr]">
         <div className="space-y-6">
           <Card>
             <CardHeader title="Order details" />

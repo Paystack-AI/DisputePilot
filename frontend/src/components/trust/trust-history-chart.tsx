@@ -1,5 +1,6 @@
 'use client';
 
+import { useChartColors } from '@/lib/chart-colors';
 import {
   CartesianGrid,
   Line,
@@ -13,6 +14,7 @@ import { format, parseISO } from 'date-fns';
 import type { TrustHistory } from '@/lib/types';
 
 export function TrustHistoryChart({ history }: { history: TrustHistory | undefined }) {
+  const c = useChartColors();
   const points = (history?.points ?? []).map((point) => ({
     ...point,
     label: format(parseISO(point.at), 'd MMM'),
@@ -31,25 +33,27 @@ export function TrustHistoryChart({ history }: { history: TrustHistory | undefin
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={points} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}>
-          <CartesianGrid vertical={false} stroke="#e9edf2" />
+          <CartesianGrid vertical={false} stroke={c.grid} />
           <XAxis
             dataKey="label"
             tickLine={false}
             axisLine={false}
-            tick={{ fill: '#8298ad', fontSize: 11 }}
+            tick={{ fill: c.axis, fontSize: 11 }}
             minTickGap={28}
           />
           <YAxis
             domain={[0, 100]}
             tickLine={false}
             axisLine={false}
-            tick={{ fill: '#8298ad', fontSize: 11 }}
+            tick={{ fill: c.axis, fontSize: 11 }}
           />
           <Tooltip
             contentStyle={{
-              borderRadius: 12,
-              border: '1px solid #e4e7e1',
-              boxShadow: '0 12px 32px -20px rgba(16, 24, 40, 0.3)',
+              borderRadius: 8,
+              border: `1px solid ${c.grid}`,
+              background: c.surface,
+              color: c.text,
+              boxShadow: 'none',
               fontSize: 12,
             }}
             formatter={(value: number) => [value, 'Trust score']}
@@ -57,9 +61,9 @@ export function TrustHistoryChart({ history }: { history: TrustHistory | undefin
           <Line
             type="monotone"
             dataKey="score"
-            stroke="#20a46c"
+            stroke={c.primary}
             strokeWidth={2.5}
-            dot={{ r: 3, fill: '#20a46c', strokeWidth: 0 }}
+            dot={{ r: 3, fill: c.primary, strokeWidth: 0 }}
             activeDot={{ r: 5 }}
           />
         </LineChart>

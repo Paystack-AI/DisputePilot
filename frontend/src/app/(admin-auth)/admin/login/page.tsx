@@ -41,9 +41,7 @@ export default function AdminLoginPage() {
   });
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-ink-950 px-4 py-10">
-      <div className="absolute -left-32 top-10 h-96 w-96 rounded-full bg-brand-500/10 blur-3xl" />
-      <div className="absolute -right-24 bottom-0 h-80 w-80 rounded-full bg-amber-300/10 blur-3xl" />
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-navy px-4 py-10">
       <div
         className="absolute inset-0 opacity-[0.04]"
         style={{
@@ -61,8 +59,8 @@ export default function AdminLoginPage() {
           </span>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white p-6 shadow-float sm:p-8">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-ink-950 text-white">
+        <div className="rounded-xl border border-white/10 bg-surface p-6 shadow-float sm:p-8">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-navy text-white">
             <Lock className="h-5 w-5" />
           </div>
           <h1 className="mt-5 text-2xl font-semibold tracking-[-0.03em] text-ink-950">
@@ -131,7 +129,7 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={login.isPending}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-ink-950 px-4 py-3 text-[13px] font-semibold text-white transition hover:bg-ink-800 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-navy px-4 py-3 text-[13px] font-semibold text-white transition hover:bg-ink-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {login.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Sign in to admin

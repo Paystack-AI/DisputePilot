@@ -196,10 +196,10 @@ export default function CustomerLedgerPage() {
                             : null;
                   return (
                     <div key={`${entry.kind}-${entry.id}`} className="relative flex gap-4">
-                      <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-white text-ink-500">
+                      <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-ink-500">
                         <Icon className="h-3.5 w-3.5" />
                       </div>
-                      <div className="min-w-0 flex-1 rounded-xl border border-line bg-white px-3.5 py-3">
+                      <div className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-3.5 py-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-[12px] font-semibold capitalize text-ink-900">
@@ -391,7 +391,7 @@ export default function CustomerLedgerPage() {
         </Card>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <SmallStat
           icon={<FileText className="h-4 w-4" />}
           label="Orders"
