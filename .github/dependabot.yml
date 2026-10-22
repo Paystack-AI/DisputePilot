@@ -8,6 +8,19 @@ updates:
     groups:
       npm-minor-patch:
         update-types: ['minor', 'patch']
+    # react, react-dom and their types move together, with next; a major bump of one
+    # alone breaks npm ci (peer conflict), so upgrade them by hand in one change
+    ignore:
+      - dependency-name: 'react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'react-dom'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@types/react-dom'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'next'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: 'uv'
     directory: '/backend'
