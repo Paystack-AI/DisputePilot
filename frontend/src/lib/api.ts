@@ -192,7 +192,20 @@ export async function deleteUpload(fileId: string): Promise<void> {
 }
 
 export function errorMessage(error: unknown) {
-  if (error instanceof ApiError) return error.message;
+  if (error instanceof ApiError) {
+    // validation errors name each field, e.g. { phone: 'Value error, must be ...' }
+    const fields = Object.entries(error.details ?? {}).filter(
+      ([, value]) => typeof value === 'string',
+    );
+    if (!fields.length) return error.message;
+    return fields
+      .map(([field, value]) => {
+        const name = field.split('.').pop()!.replace(/_/g, ' ');
+        const text = value.replace(/^Value error, /, '');
+        return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${text}`;
+      })
+      .join('. ');
+  }
   if (error instanceof Error) return error.message;
   return 'Something went wrong. Please try again.';
 }

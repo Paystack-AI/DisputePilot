@@ -85,8 +85,10 @@ export function CustomerEditModal({
               id="customer-phone"
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
+              placeholder="+2348031234567"
               maxLength={32}
             />
+            <FieldHint>With the country code, e.g. +234 for Nigeria.</FieldHint>
           </div>
         </div>
         <div className="flex items-center justify-between gap-4 rounded-xl bg-ink-50/70 p-4">
