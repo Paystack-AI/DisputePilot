@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { AuthShell } from '@/components/auth/auth-shell';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input, Label } from '@/components/ui/input';
+import { FieldHint, Input, Label } from '@/components/ui/input';
 import { apiRequest, errorMessage } from '@/lib/api';
 import type { Token } from '@/lib/types';
 import { useAuthStore } from '@/stores/auth';
@@ -112,6 +112,9 @@ function ReactivateForm() {
               className="text-center text-lg font-semibold tracking-[0.45em]"
               required
             />
+            <FieldHint>
+              If the code does not arrive, check your spam or junk folder before resending.
+            </FieldHint>
           </div>
         ) : null}
         <Button

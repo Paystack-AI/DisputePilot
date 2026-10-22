@@ -161,7 +161,10 @@ export default function RegisterPage() {
           </span>
         </label>
         <FieldError>{errors.terms?.message}</FieldError>
-        <FieldHint>We will email a six-digit code to verify your account.</FieldHint>
+        <FieldHint>
+          We will email a six-digit code to verify your account. If it does not arrive, check your
+          spam or junk folder.
+        </FieldHint>
 
         <Button type="submit" size="lg" className="w-full" loading={isSubmitting}>
           Create account

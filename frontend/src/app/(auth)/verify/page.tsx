@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { AuthShell } from '@/components/auth/auth-shell';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { FieldError, Input, Label } from '@/components/ui/input';
+import { FieldError, FieldHint, Input, Label } from '@/components/ui/input';
 import { apiRequest, errorMessage } from '@/lib/api';
 
 function VerifyForm() {
@@ -103,6 +103,9 @@ function VerifyForm() {
           <FieldError>
             {code.length > 0 && code.length < 6 ? 'Enter all six digits' : null}
           </FieldError>
+          <FieldHint>
+            Can&apos;t find the code? Check your spam or junk folder, then resend.
+          </FieldHint>
         </div>
         <Button
           type="submit"

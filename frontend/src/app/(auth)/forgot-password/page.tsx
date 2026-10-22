@@ -7,7 +7,7 @@ import { KeyRound } from 'lucide-react';
 import { AuthShell } from '@/components/auth/auth-shell';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Input, Label } from '@/components/ui/input';
+import { FieldHint, Input, Label } from '@/components/ui/input';
 import { apiRequest, errorMessage } from '@/lib/api';
 
 export default function ForgotPasswordPage() {
@@ -64,6 +64,9 @@ export default function ForgotPasswordPage() {
             onChange={(event) => setEmail(event.target.value)}
             required
           />
+          <FieldHint>
+            If the code does not arrive, check your spam or junk folder before requesting another.
+          </FieldHint>
         </div>
         <Button type="submit" size="lg" className="w-full" loading={sending}>
           Send reset code
