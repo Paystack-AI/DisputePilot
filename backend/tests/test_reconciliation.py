@@ -449,7 +449,7 @@ class TestAutomaticPass:
             amount=500000,
             currency="NGN",
             source="website",
-            created_at=paid_at - timedelta(hours=2),
+            ordered_at=paid_at - timedelta(hours=2),
         )
         sync_db.add(order)
         sync_db.commit()

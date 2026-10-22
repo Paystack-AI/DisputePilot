@@ -70,6 +70,12 @@ class Order(Base):
     flag_reason: Mapped[str | None] = mapped_column(VARCHAR(255))
     flagged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
+    # when the sale happened, as the merchant says; defaults to when it was logged. Every
+    # date that means "the sale" (matching windows, sessions, evidence) reads this, while
+    # created_at stays when the record was saved
+    ordered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -84,6 +90,8 @@ class Order(Base):
             unique=True,
             postgresql_where=text("order_number IS NOT NULL"),
         ),
+        # matching and reconciliation read a merchant's orders inside a date window
+        Index("orders_merchant_ordered_at_idx", "merchant_id", "ordered_at"),
         # trigram indexes serve the search's ILIKE '%term%' (pg_trgm)
         Index(
             "orders_order_number_trgm_idx",

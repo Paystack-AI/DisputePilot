@@ -109,7 +109,7 @@ class SyncTrustRepository:
             .where(
                 Order.merchant_id == merchant_id,
                 Order.status.in_(COMPLETED_ORDERS),
-                Order.created_at >= orders_from,
+                Order.ordered_at >= orders_from,
             )
             .subquery("orders")
         )

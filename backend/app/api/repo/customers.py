@@ -261,7 +261,7 @@ class CustomerRepository(BaseRepository[CustomerInDB, Customer]):
         )
         orders = select(
             literal("order"),
-            Order.created_at,
+            Order.ordered_at,
             Order.id,
             Order.order_number,
             Order.amount,

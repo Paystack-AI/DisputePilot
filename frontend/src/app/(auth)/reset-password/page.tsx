@@ -103,6 +103,9 @@ function ResetForm() {
             className="text-center text-lg font-semibold tracking-[0.45em]"
             required
           />
+          <FieldHint>
+            Can&apos;t find the code? Check your spam or junk folder, then resend.
+          </FieldHint>
         </div>
         <div>
           <Label htmlFor="password">New password</Label>

@@ -37,7 +37,14 @@ from app.core.exceptions import (
 
 # a linked order is the other half of a reconciliation match; changing these would
 # invalidate the match, so the merchant unlinks it in reconciliation first
-LINKED_LOCKED_FIELDS: tuple[str, ...] = ("order_number", "amount", "currency", "customer_id")
+# ordered_at too: the match was made against it, and the evidence quotes it
+LINKED_LOCKED_FIELDS: tuple[str, ...] = (
+    "order_number",
+    "amount",
+    "currency",
+    "customer_id",
+    "ordered_at",
+)
 
 # paid is only set by reconciliation (a matched payment, or marking an order as cash)
 MERCHANT_STATUS_TRANSITIONS: set[tuple[OrderStatus, OrderStatus]] = {
@@ -60,6 +67,7 @@ def order_response(order: Order, customer: Customer | None, is_linked: bool) -> 
         resolution=order.resolution,
         flag_reason=order.flag_reason,
         flagged_at=order.flagged_at,
+        ordered_at=order.ordered_at,
         created_at=order.created_at,
         updated_at=order.updated_at,
     )
@@ -170,6 +178,7 @@ class OrderManagementService:
                 amount=payload.amount,
                 currency=payload.currency,
                 source=payload.source,
+                ordered_at=payload.ordered_at or datetime.now(UTC),
             ),
             commit=True,
         )

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
@@ -223,6 +223,78 @@ class TestCreateOrder:
         assert res.status_code == 401
 
 
+class TestOrderDate:
+    @pytest.mark.asyncio
+    async def test_defaults_to_now(self, async_client: AsyncClient, auth_headers: dict):
+        before: datetime = datetime.now(UTC)
+        order: dict = await _order(async_client, auth_headers, {"amount": 1000})
+        ordered_at: datetime = datetime.fromisoformat(order["ordered_at"])
+        assert before - timedelta(seconds=5) <= ordered_at <= datetime.now(UTC)
+
+    @pytest.mark.asyncio
+    async def test_sale_logged_afterwards(self, async_client: AsyncClient, auth_headers: dict):
+        placed = datetime(2026, 9, 30, 14, 0, tzinfo=UTC)
+        order: dict = await _order(
+            async_client, auth_headers, {"amount": 1000, "ordered_at": placed.isoformat()}
+        )
+        assert datetime.fromisoformat(order["ordered_at"]) == placed
+        # the record itself is still dated when it was logged
+        assert datetime.fromisoformat(order["created_at"]) > placed
+
+    @pytest.mark.asyncio
+    async def test_future_rejected(self, async_client: AsyncClient, auth_headers: dict):
+        tomorrow: str = (datetime.now(UTC) + timedelta(days=1)).isoformat()
+        res: Response = await _create(
+            async_client, auth_headers, {"amount": 1000, "ordered_at": tomorrow}
+        )
+        assert res.status_code == 422
+        assert "ordered_at" in res.json()["error"]["details"]
+
+    @pytest.mark.asyncio
+    async def test_edit_until_linked(
+        self, async_client: AsyncClient, auth_headers: dict, session_maker: SessionMaker
+    ):
+        order: dict = await _order(async_client, auth_headers, {"amount": 1000})
+        placed: str = datetime(2026, 9, 28, 9, 0, tzinfo=UTC).isoformat()
+
+        res: Response = await async_client.patch(
+            f"/orders/{order['id']}", json={"ordered_at": placed}, headers=auth_headers
+        )
+        assert res.status_code == 200, res.text
+        assert datetime.fromisoformat(res.json()["data"]["ordered_at"]) == (
+            datetime.fromisoformat(placed)
+        )
+
+        res = await async_client.patch(
+            f"/orders/{order['id']}", json={"ordered_at": None}, headers=auth_headers
+        )
+        assert res.status_code == 422
+
+        # the payment was matched against this date
+        await _link(session_maker, order)
+        res = await async_client.patch(
+            f"/orders/{order['id']}",
+            json={"ordered_at": datetime(2026, 9, 1, tzinfo=UTC).isoformat()},
+            headers=auth_headers,
+        )
+        assert res.status_code == 409
+        assert res.json()["error"]["details"] == {"fields": "ordered_at"}
+
+    @pytest.mark.asyncio
+    async def test_list_newest_sale_first(self, async_client: AsyncClient, auth_headers: dict):
+        older: dict = await _order(
+            async_client,
+            auth_headers,
+            {"amount": 1000, "ordered_at": datetime(2026, 9, 1, tzinfo=UTC).isoformat()},
+        )
+        newer: dict = await _order(async_client, auth_headers, {"amount": 2000})
+
+        res: Response = await async_client.get("/orders", headers=auth_headers)
+        assert [row["id"] for row in res.json()["data"]] == [newer["id"], older["id"]]
+        res = await async_client.get("/orders?sort=ordered_at", headers=auth_headers)
+        assert [row["id"] for row in res.json()["data"]] == [older["id"], newer["id"]]
+
+
 class TestGetOrder:
     @pytest.mark.asyncio
     async def test_detail(
@@ -312,11 +384,11 @@ class TestListOrders:
         early: dict = await _order(async_client, auth_headers, {"amount": 2000})
         # 00:30 on 2 October in Lagos (UTC+1), but still 1 October in UTC
         await set_order(
-            session_maker, late["id"], created_at=datetime(2026, 10, 1, 23, 30, tzinfo=UTC)
+            session_maker, late["id"], ordered_at=datetime(2026, 10, 1, 23, 30, tzinfo=UTC)
         )
         # 23:30 on 1 October in Lagos
         await set_order(
-            session_maker, early["id"], created_at=datetime(2026, 10, 1, 22, 30, tzinfo=UTC)
+            session_maker, early["id"], ordered_at=datetime(2026, 10, 1, 22, 30, tzinfo=UTC)
         )
 
         res: Response = await async_client.get(

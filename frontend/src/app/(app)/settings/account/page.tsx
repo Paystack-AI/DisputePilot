@@ -283,6 +283,9 @@ function DeactivateCard() {
               onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
               className="text-center text-lg font-semibold tracking-[0.45em]"
             />
+            <FieldHint>
+              If the code does not arrive, check your spam or junk folder before resending.
+            </FieldHint>
             <button
               type="button"
               className="mt-2 text-[12px] font-semibold text-brand-700"

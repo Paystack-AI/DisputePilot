@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { apiRequest, errorMessage } from '@/lib/api';
 import type { Currency, Order, OrderSource } from '@/lib/types';
 import { CURRENCIES, ORDER_SOURCES } from '@/lib/constants';
-import { titleCase } from '@/lib/format';
+import { titleCase, toLocalInput } from '@/lib/format';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { FieldHint, Input, Label, Select, Textarea } from '@/components/ui/input';
@@ -18,11 +18,13 @@ export function OrderEditModal({ order, onClose }: { order: Order; onClose: () =
   const [amount, setAmount] = useState(String(order.amount / 100));
   const [currency, setCurrency] = useState<Currency>(order.currency);
   const [source, setSource] = useState<OrderSource>(order.source);
-  // the amount is part of the match: once a payment is linked it can not change
+  const [orderedAt, setOrderedAt] = useState(toLocalInput(order.ordered_at));
+  // the amount and date are part of the match: once a payment is linked they can not change
   const amountLocked = order.is_linked;
 
   const minor = Math.round(Number(amount) * 100);
   const validAmount = Number.isFinite(minor) && minor > 0;
+  const validDate = Boolean(orderedAt) && new Date(orderedAt).getTime() <= Date.now() + 5 * 60_000;
 
   const saveMutation = useMutation({
     mutationFn: () =>
@@ -32,7 +34,9 @@ export function OrderEditModal({ order, onClose }: { order: Order; onClose: () =
           order_number: orderNumber.trim() || undefined,
           description: description.trim() || null,
           source,
-          ...(amountLocked ? {} : { amount: minor, currency }),
+          ...(amountLocked
+            ? {}
+            : { amount: minor, currency, ordered_at: new Date(orderedAt).toISOString() }),
         },
       }),
     onSuccess: () => {
@@ -58,7 +62,7 @@ export function OrderEditModal({ order, onClose }: { order: Order; onClose: () =
           <Button
             onClick={() => saveMutation.mutate()}
             loading={saveMutation.isPending}
-            disabled={!validAmount}
+            disabled={!validAmount || !validDate}
           >
             Save changes
           </Button>
@@ -117,11 +121,23 @@ export function OrderEditModal({ order, onClose }: { order: Order; onClose: () =
             ))}
           </Select>
         </div>
-        {amountLocked ? (
-          <div className="sm:col-span-2">
-            <FieldHint>A payment is linked, so the amount and currency are fixed.</FieldHint>
-          </div>
-        ) : null}
+        <div className="sm:col-span-2">
+          <Label htmlFor="ordered-at">Order placed</Label>
+          <Input
+            id="ordered-at"
+            type="datetime-local"
+            value={orderedAt}
+            max={toLocalInput()}
+            onChange={(event) => setOrderedAt(event.target.value)}
+            disabled={amountLocked}
+            error={!validDate}
+          />
+          <FieldHint>
+            {amountLocked
+              ? 'A payment is linked, so the amount, currency and date are fixed.'
+              : 'When the sale happened. Reconciliation matches payments against this date.'}
+          </FieldHint>
+        </div>
         <div className="sm:col-span-2">
           <Label htmlFor="description">Description</Label>
           <Textarea

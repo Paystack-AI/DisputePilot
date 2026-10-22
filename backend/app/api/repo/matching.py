@@ -85,19 +85,19 @@ class _Statements:
 
     @staticmethod
     def open_orders(merchant_id: UUID, created_from: datetime, created_to: datetime) -> Executable:
-        """id, order_number, amount, currency, customer_id, created_at"""
+        """id, order_number, amount, currency, customer_id, ordered_at"""
         return select(
             Order.id,
             Order.order_number,
             Order.amount,
             Order.currency,
             Order.customer_id,
-            Order.created_at,
+            Order.ordered_at,
         ).where(
             Order.merchant_id == merchant_id,
             *open_order_conditions(),
-            Order.created_at >= created_from,
-            Order.created_at <= created_to,
+            Order.ordered_at >= created_from,
+            Order.ordered_at <= created_to,
         )
 
     @staticmethod
