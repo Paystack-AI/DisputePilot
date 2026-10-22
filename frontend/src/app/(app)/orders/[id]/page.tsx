@@ -138,8 +138,8 @@ export default function OrderDetailPage() {
             Order {order.order_number ?? '—'}
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            {formatMoney(order.amount, order.currency)} · {titleCase(order.source)} · created{' '}
-            {timeAgo(order.created_at)}
+            {formatMoney(order.amount, order.currency)} · {titleCase(order.source)} · placed{' '}
+            {timeAgo(order.ordered_at)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2.5">
@@ -194,7 +194,8 @@ export default function OrderDetailPage() {
               <Row label="Description" value={order.description ?? 'No description'} />
               <Row label="Amount" value={formatMoney(order.amount, order.currency)} />
               <Row label="Sales channel" value={titleCase(order.source)} />
-              <Row label="Created" value={formatDateTime(order.created_at)} />
+              <Row label="Placed" value={formatDateTime(order.ordered_at)} />
+              <Row label="Logged" value={formatDateTime(order.created_at)} />
               <Row label="Last updated" value={formatDateTime(order.updated_at)} />
               {order.flag_reason ? (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-[12px] text-red-800">

@@ -141,7 +141,7 @@ def _shop(db: Session, payments: int = 30, matched: int = 30, fulfilled: int = 3
                 currency=Currency.NGN,
                 source=OrderSource.WEBSITE,
                 status=OrderStatus.PAID,
-                created_at=datetime.now(UTC) - timedelta(days=3),
+                ordered_at=datetime.now(UTC) - timedelta(days=3),
             )
             db.add(order)
             db.flush()

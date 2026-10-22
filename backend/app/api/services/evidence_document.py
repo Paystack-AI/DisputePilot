@@ -162,7 +162,8 @@ class EvidenceDocumentBuilder:
                 OrderDetails(
                     order_number=order.order_number,
                     description=order.description,
-                    created_at=order.created_at,
+                    # when the sale happened, not when it was logged
+                    created_at=order.ordered_at,
                     amount=order.amount,
                     currency=order.currency,
                 )

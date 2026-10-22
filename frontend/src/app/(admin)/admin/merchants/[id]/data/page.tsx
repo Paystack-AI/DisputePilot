@@ -307,7 +307,7 @@ function OrderRows({ rows, onView }: { rows: Order[]; onView: (o: Order) => void
           <th>Amount</th>
           <th>Status</th>
           <th>Payment</th>
-          <th>Created</th>
+          <th>Placed</th>
           <th />
         </tr>
       </thead>
@@ -325,7 +325,7 @@ function OrderRows({ rows, onView }: { rows: Order[]; onView: (o: Order) => void
                 {o.is_linked ? 'Linked' : 'Awaiting'}
               </Badge>
             </td>
-            <td className="text-[12px] text-ink-500">{formatDate(o.created_at)}</td>
+            <td className="text-[12px] text-ink-500">{formatDate(o.ordered_at)}</td>
             <td>
               <ViewButton onClick={() => onView(o)} />
             </td>

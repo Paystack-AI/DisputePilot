@@ -93,7 +93,7 @@ export default function OrdersPage() {
                 <th>Source</th>
                 <th>Status</th>
                 <th>Payment</th>
-                <th>Created</th>
+                <th>Placed</th>
                 <th />
               </tr>
             </thead>
@@ -137,7 +137,7 @@ export default function OrdersPage() {
                       <span className="text-[11px] text-ink-400">Awaiting</span>
                     )}
                   </td>
-                  <td className="text-[12px] text-ink-500">{timeAgo(order.created_at)}</td>
+                  <td className="text-[12px] text-ink-500">{timeAgo(order.ordered_at)}</td>
                   <td>
                     <Link href={`/orders/${order.id}`}>
                       <Button variant="ghost" size="sm">

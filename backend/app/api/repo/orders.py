@@ -86,12 +86,12 @@ class OrderRepository(BaseRepository[OrderInDB, Order]):
             conditions.append(self.model.customer_id == query.customer_id)
         if query.date_from:
             conditions.append(
-                self.model.created_at >= self._merchant_day_start(merchant_id, query.date_from)
+                self.model.ordered_at >= self._merchant_day_start(merchant_id, query.date_from)
             )
         if query.date_to:
             next_day: date = query.date_to + timedelta(days=1)
             conditions.append(
-                self.model.created_at < self._merchant_day_start(merchant_id, next_day)
+                self.model.ordered_at < self._merchant_day_start(merchant_id, next_day)
             )
         if query.search:
             pattern: str = contains_pattern(query.search)
@@ -105,12 +105,13 @@ class OrderRepository(BaseRepository[OrderInDB, Order]):
             )
 
         sort_columns: dict[str, Any] = {
+            "ordered_at": self.model.ordered_at,
             "created_at": self.model.created_at,
             "amount": self.model.amount,
             "order_number": func.lower(self.model.order_number),
         }
         descending: bool = query.sort.startswith("-")
-        sort_column = sort_columns.get(query.sort.lstrip("-"), self.model.created_at)
+        sort_column = sort_columns.get(query.sort.lstrip("-"), self.model.ordered_at)
 
         # id breaks ties so pages never repeat or skip rows
         order_by = (

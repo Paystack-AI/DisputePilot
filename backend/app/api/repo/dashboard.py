@@ -186,7 +186,7 @@ class DashboardRepository(BaseRepository[BaseModel, Transaction]):
                     Order.status == OrderStatus.PAID,
                     ~exists().where(Fulfillment.order_id == Order.id),
                 )
-                .order_by(Order.created_at.desc(), Order.id.desc())
+                .order_by(Order.ordered_at.desc(), Order.id.desc())
                 .limit(limit)
             )
         )

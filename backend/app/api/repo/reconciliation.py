@@ -119,8 +119,8 @@ class ReconciliationRepository(BaseRepository[BaseModel, ReconciliationSession])
     def _orders_in(merchant_id: UUID, created_from: datetime, created_to: datetime) -> list[Any]:
         return [
             Order.merchant_id == merchant_id,
-            Order.created_at >= created_from,
-            Order.created_at < created_to,
+            Order.ordered_at >= created_from,
+            Order.ordered_at < created_to,
         ]
 
     def _payments_with_links(self) -> Select:
@@ -268,7 +268,7 @@ class ReconciliationRepository(BaseRepository[BaseModel, ReconciliationSession])
                 *open_order_conditions(),
                 ~_order_has_pending_suggestion(),
             )
-            .order_by(Order.created_at.desc(), Order.id.desc())
+            .order_by(Order.ordered_at.desc(), Order.id.desc())
             .limit(LIST_LIMIT)
         )
         return [tuple(row) for row in rows.all()]
@@ -282,7 +282,7 @@ class ReconciliationRepository(BaseRepository[BaseModel, ReconciliationSession])
                 *self._orders_in(merchant_id, created_from, created_to),
                 Order.flagged_at.is_not(None),
             )
-            .order_by(Order.created_at.desc(), Order.id.desc())
+            .order_by(Order.ordered_at.desc(), Order.id.desc())
             .limit(LIST_LIMIT)
         )
         return [tuple(row) for row in rows.all()]

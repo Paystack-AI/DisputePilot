@@ -320,7 +320,7 @@ class TestProcess:
             amount=500000,
             currency="NGN",
             source=OrderSource.WEBSITE,
-            created_at=paid_at - timedelta(hours=1),
+            ordered_at=paid_at - timedelta(hours=1),
         )
         task_db.add(order)
         task_db.commit()

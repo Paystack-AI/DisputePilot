@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 from uuid import UUID
 
@@ -12,6 +12,8 @@ from app.api.schemas.pagination import PageParams
 from app.api.schemas.transactions import TransactionSummary
 
 OrderSort = Literal[
+    "ordered_at",
+    "-ordered_at",
     "created_at",
     "-created_at",
     "amount",
@@ -23,6 +25,21 @@ OrderSort = Literal[
 # optional and merchant-entered; the same value in paystack metadata or the reference
 # auto-matches the payment (tier 1)
 OrderNumber = Field(None, min_length=1, max_length=50)
+
+
+# a little slack for a device clock running ahead of the server's
+FUTURE_SLACK = timedelta(minutes=5)
+
+
+def _past_order_date(value: datetime | None) -> datetime | None:
+    """When the sale happened: never in the future. A time without a zone is taken as UTC"""
+    if value is None:
+        return value
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    if value > datetime.now(UTC) + FUTURE_SLACK:
+        raise ValueError("can not be in the future")
+    return value
 
 
 def _reject_null(value):
@@ -41,6 +58,11 @@ class OrderCreate(AuthBase):
     amount: int = Field(..., gt=0)  # smallest currency unit, e.g. kobo
     currency: Currency | None = None  # defaults to the merchant's default currency
     source: OrderSource = OrderSource.OTHER
+    # when the sale happened, if not now (e.g. a sale logged afterwards); reconciliation
+    # matches payments against this date
+    ordered_at: datetime | None = None
+
+    _validate_ordered_at = field_validator("ordered_at")(_past_order_date)
 
     @model_validator(mode="after")
     def validate_customer(self) -> "OrderCreate":
@@ -58,10 +80,12 @@ class OrderUpdate(AuthBase):
     currency: Currency | None = None
     source: OrderSource | None = None
     status: OrderStatus | None = None
+    ordered_at: datetime | None = None
 
-    _validate_not_null = field_validator("amount", "currency", "source", "status", mode="before")(
-        _reject_null
-    )
+    _validate_not_null = field_validator(
+        "amount", "currency", "source", "status", "ordered_at", mode="before"
+    )(_reject_null)
+    _validate_ordered_at = field_validator("ordered_at")(_past_order_date)
 
 
 class OrderInDB(BaseModel):
@@ -72,6 +96,7 @@ class OrderInDB(BaseModel):
     amount: int
     currency: Currency | None = None  # none: the merchant's default currency
     source: OrderSource
+    ordered_at: datetime
 
 
 class OrderListQuery(PageParams):
@@ -82,7 +107,7 @@ class OrderListQuery(PageParams):
     date_from: date | None = None
     date_to: date | None = None
     search: str | None = Field(None, min_length=1, max_length=255)  # number, description, customer
-    sort: OrderSort = "-created_at"
+    sort: OrderSort = "-ordered_at"
 
     @field_validator("status", mode="before")
     @classmethod
@@ -117,7 +142,8 @@ class OrderResponse(BaseModel):
     resolution: OrderResolution | None
     flag_reason: str | None
     flagged_at: datetime | None
-    created_at: datetime
+    ordered_at: datetime  # when the sale happened
+    created_at: datetime  # when it was logged
     updated_at: datetime | None
 
 

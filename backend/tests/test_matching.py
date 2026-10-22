@@ -35,7 +35,7 @@ def _order(**fields) -> Candidate:
         "amount": 4500000,
         "currency": "NGN",
         "customer_id": None,
-        "created_at": NOW - timedelta(hours=3),
+        "ordered_at": NOW - timedelta(hours=3),
     }
     values.update(fields)
     return Candidate(**values)
@@ -63,7 +63,7 @@ class TestOrderNumberKeys:
 
 class TestTier1:
     def test_order_number_matches(self):
-        order = _order(order_number="A-1032", created_at=NOW - timedelta(days=20))
+        order = _order(order_number="A-1032", ordered_at=NOW - timedelta(days=20))
         payment = _payment(metadata={"order_number": "a-1032"})
 
         plan = plan_matches([payment], [order], set())
@@ -101,14 +101,14 @@ class TestTier1:
 
 class TestTier2:
     def test_one_order_from_the_customer_matches(self):
-        order = _order(customer_id=ADA, created_at=NOW - timedelta(days=6))
+        order = _order(customer_id=ADA, ordered_at=NOW - timedelta(days=6))
         plan = plan_matches([_payment(customer_id=ADA)], [order], set())
         assert [(m.order_id, m.tier, m.confidence) for m in plan.matches] == [(order.id, 2, 95)]
 
     def test_several_orders_are_suggested(self):
         orders = [
             _order(customer_id=ADA),
-            _order(customer_id=ADA, created_at=NOW - timedelta(days=2)),
+            _order(customer_id=ADA, ordered_at=NOW - timedelta(days=2)),
         ]
         plan = plan_matches([_payment(customer_id=ADA)], orders, set())
 
@@ -118,12 +118,12 @@ class TestTier2:
         assert "2 orders qualify" in plan.suggestions[0].reason
 
     def test_shared_email_is_not_matched_by_customer(self):
-        order = _order(customer_id=ADA, created_at=NOW - timedelta(days=3))
+        order = _order(customer_id=ADA, ordered_at=NOW - timedelta(days=3))
         plan = plan_matches([_payment(customer_id=ADA, customer_shared=True)], [order], set())
         assert not plan.matches and not plan.suggestions
 
     def test_older_than_7_days_is_not_matched(self):
-        order = _order(customer_id=ADA, created_at=NOW - timedelta(days=8))
+        order = _order(customer_id=ADA, ordered_at=NOW - timedelta(days=8))
         plan = plan_matches([_payment(customer_id=ADA)], [order], set())
         assert not plan.matches
 
@@ -139,9 +139,9 @@ class TestTier3:
         assert suggestion.reason == "Amount identical, paid 3 hours after the order."
 
     def test_order_logged_after_the_payment(self):
-        order = _order(created_at=NOW + timedelta(hours=2))
+        order = _order(ordered_at=NOW + timedelta(hours=2))
         plan = plan_matches([_payment()], [order], set())
-        assert "before the order was logged" in plan.suggestions[0].reason
+        assert "before the order was placed" in plan.suggestions[0].reason
 
     def test_several_orders_suggest_nothing(self):
         plan = plan_matches([_payment()], [_order(), _order()], set())
@@ -156,7 +156,7 @@ class TestPlan:
         assert not plan.matches and not plan.suggestions
 
     def test_an_order_is_linked_once(self):
-        order = _order(customer_id=ADA, created_at=NOW - timedelta(days=1))
+        order = _order(customer_id=ADA, ordered_at=NOW - timedelta(days=1))
         first = _payment(customer_id=ADA)
         second = _payment(customer_id=ADA, paid_at=NOW + timedelta(minutes=5))
 
@@ -174,7 +174,7 @@ class TestPlan:
         assert [m.transaction_id for m in plan.matches] == [by_number.id]
 
     def test_suggestion_for_an_order_linked_later_is_dropped(self):
-        order = _order(customer_id=ADA, created_at=NOW - timedelta(hours=2))
+        order = _order(customer_id=ADA, ordered_at=NOW - timedelta(hours=2))
         stranger = _payment(paid_at=NOW - timedelta(hours=1))  # tier 3 for the order
         ada = _payment(customer_id=ADA)  # tier 2 takes it
 

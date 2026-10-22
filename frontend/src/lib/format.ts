@@ -93,3 +93,9 @@ export function deadlineLabel(value: string, serverTime?: string) {
   if (remainingHours > 0) return `${remainingHours}h ${minutes}m`;
   return `${minutes}m`;
 }
+
+/** A datetime-local input's value (local time, to the minute) for an ISO time or now */
+export function toLocalInput(value?: string | Date) {
+  const date = value ? new Date(value) : new Date();
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}

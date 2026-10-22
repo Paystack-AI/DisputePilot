@@ -55,7 +55,7 @@ class Candidate:
     amount: int
     currency: str
     customer_id: UUID | None
-    created_at: datetime
+    ordered_at: datetime
 
 
 @dataclass(frozen=True)
@@ -130,9 +130,9 @@ def _hours_between(earlier: datetime, later: datetime) -> str:
 
 
 def _timing(payment: Payment, order: Candidate) -> str:
-    if payment.paid_at >= order.created_at:
-        return f"paid {_hours_between(order.created_at, payment.paid_at)} after the order"
-    return f"paid {_hours_between(payment.paid_at, order.created_at)} before the order was logged"
+    if payment.paid_at >= order.ordered_at:
+        return f"paid {_hours_between(order.ordered_at, payment.paid_at)} after the order"
+    return f"paid {_hours_between(payment.paid_at, order.ordered_at)} before the order was placed"
 
 
 def plan_matches(
@@ -203,7 +203,7 @@ def plan_matches(
             and order.customer_id == payment.customer_id
             and order.amount == payment.amount
             and order.currency == payment.currency
-            and payment.paid_at - TIER2_WINDOW <= order.created_at <= payment.paid_at
+            and payment.paid_at - TIER2_WINDOW <= order.ordered_at <= payment.paid_at
         ]
         if len(found) == 1:
             link(payment, found[0], 2, TIER2_CONFIDENCE)
@@ -231,7 +231,7 @@ def plan_matches(
             if available(order, payment)
             and order.amount == payment.amount
             and order.currency == payment.currency
-            and abs(payment.paid_at - order.created_at) <= TIER3_WINDOW
+            and abs(payment.paid_at - order.ordered_at) <= TIER3_WINDOW
         ]
         if len(found) == 1:
             order = found[0]

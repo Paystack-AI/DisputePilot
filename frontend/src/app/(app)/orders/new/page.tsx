@@ -15,6 +15,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardBody } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FieldError, FieldHint, Input, Label, Select, Textarea } from '@/components/ui/input';
+import { toLocalInput } from '@/lib/format';
 import { Alert } from '@/components/ui/alert';
 
 const schema = z.object({
@@ -24,6 +25,12 @@ const schema = z.object({
   amount: z.coerce.number().positive('Amount must be greater than zero'),
   currency: z.enum(CURRENCIES),
   source: z.enum(['website', 'whatsapp', 'instagram', 'in_store', 'other']),
+  ordered_at: z
+    .string()
+    .min(1, 'Enter when the order was placed')
+    .refine((value) => new Date(value).getTime() <= Date.now() + 5 * 60_000, {
+      message: 'The order date can not be in the future',
+    }),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -50,6 +57,7 @@ function NewOrderForm() {
       amount: amountParam ? Number(amountParam) / 100 : undefined,
       currency: 'NGN',
       source: 'website',
+      ordered_at: toLocalInput(),
     },
   });
 
@@ -66,6 +74,7 @@ function NewOrderForm() {
           amount: Math.round(values.amount * 100),
           currency: values.currency,
           source: values.source,
+          ordered_at: new Date(values.ordered_at).toISOString(),
         },
       });
       toast.success('Order created');
@@ -167,6 +176,22 @@ function NewOrderForm() {
                   ))}
                 </Select>
                 <FieldError>{errors.source?.message}</FieldError>
+              </div>
+
+              <div>
+                <Label htmlFor="ordered_at">Order placed</Label>
+                <Input
+                  id="ordered_at"
+                  type="datetime-local"
+                  max={toLocalInput()}
+                  error={Boolean(errors.ordered_at)}
+                  {...register('ordered_at')}
+                />
+                <FieldError>{errors.ordered_at?.message}</FieldError>
+                <FieldHint>
+                  Logging a sale after the fact? Set when it happened so it matches the right
+                  payment.
+                </FieldHint>
               </div>
 
               <div className="flex justify-end gap-2.5">

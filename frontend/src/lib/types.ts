@@ -207,7 +207,8 @@ export interface Order {
   resolution: OrderResolution | null;
   flag_reason: string | null;
   flagged_at: string | null;
-  created_at: string;
+  ordered_at: string; // when the sale happened
+  created_at: string; // when it was logged
   updated_at: string | null;
 }
 
