@@ -151,8 +151,9 @@ async function perform<T>(
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = options.admin ? getAdminToken() : (getSession()?.access_token ?? null);
-  const payload = await perform<Envelope<T>>(path, options, token);
-  return payload.data;
+  const payload = await perform<Envelope<T> | undefined>(path, options, token);
+  // a 204 has no body, so no envelope
+  return payload?.data as T;
 }
 
 export async function apiList<T>(
@@ -184,6 +185,10 @@ export async function uploadFiles(files: File[]): Promise<FileRef[]> {
     body: form,
   });
   return result.files;
+}
+
+export async function deleteUpload(fileId: string): Promise<void> {
+  await apiRequest<void>(`/uploads/${fileId}`, { method: 'DELETE' });
 }
 
 export function errorMessage(error: unknown) {

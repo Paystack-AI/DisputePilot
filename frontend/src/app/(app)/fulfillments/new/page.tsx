@@ -19,7 +19,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { apiList, apiRequest, errorMessage, uploadFiles } from '@/lib/api';
+import { apiList, apiRequest, deleteUpload, errorMessage, uploadFiles } from '@/lib/api';
 import { cn } from '@/lib/cn';
 import { formatMoney, titleCase } from '@/lib/format';
 import type { FileRef, Fulfillment, Order, OrderDetail } from '@/lib/types';
@@ -98,6 +98,12 @@ function FulfillmentForm() {
     accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.heic'] },
     maxFiles: 8,
   });
+
+  const removeFile = (fileId: string) => {
+    setFiles((current) => current.filter((item) => item.id !== fileId));
+    // Best effort: the upload is still cleaned up after a day if this fails.
+    void deleteUpload(fileId).catch(() => undefined);
+  };
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -322,9 +328,7 @@ function FulfillmentForm() {
                       <button
                         type="button"
                         className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-white/90 text-danger opacity-0 shadow transition group-hover:opacity-100"
-                        onClick={() =>
-                          setFiles((current) => current.filter((item) => item.id !== file.id))
-                        }
+                        onClick={() => removeFile(file.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

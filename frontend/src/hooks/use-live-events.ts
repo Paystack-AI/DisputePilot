@@ -11,8 +11,11 @@ const INVALIDATES: Record<string, string[][]> = {
   'dispute.created': [['disputes'], ['dashboard'], ['customer']],
   'dispute.updated': [['disputes'], ['dispute'], ['dashboard']],
   'deadline.warning': [['disputes'], ['dashboard']],
+  'evidence.progress': [['dispute']],
+  'evidence.ready': [['disputes'], ['dispute'], ['dashboard']],
   'transaction.synced': [['transactions'], ['reconciliation'], ['dashboard'], ['onboarding']],
   'reconciliation.updated': [['reconciliation'], ['transactions'], ['orders'], ['dashboard']],
+  'trust.explained': [['trust'], ['dashboard']],
   'trust.updated': [['trust'], ['dashboard']],
 };
 

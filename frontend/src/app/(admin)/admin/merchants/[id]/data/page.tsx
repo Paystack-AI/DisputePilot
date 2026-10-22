@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Download, Eye, Loader2 } from 'lucide-react';
+import { ArrowLeft, Download, Eye, Loader2, ReceiptText } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiBlob, apiList, apiRequest, errorMessage } from '@/lib/api';
 import { formatDate, formatDateTime, formatMoney, percent, titleCase } from '@/lib/format';
@@ -42,6 +42,18 @@ const SECTIONS: { value: Section; label: string; path: string }[] = [
   { value: 'fulfillments', label: 'Fulfillments', path: '/fulfillments' },
   { value: 'disputes', label: 'Disputes', path: '/disputes' },
   { value: 'reconciliation', label: 'Reconciliation', path: '/reconciliation/sessions' },
+];
+
+/** Single-response routes that power the merchant's summary screens */
+const QUICK_VIEWS: { label: string; path: string }[] = [
+  { label: 'Dashboard', path: '/dashboard' },
+  { label: 'Trust profile', path: '/trust/profile' },
+  { label: 'Trust signals', path: '/trust/signals' },
+  { label: 'Trust actions', path: '/trust/actions' },
+  { label: 'Trust history', path: '/trust/history' },
+  { label: 'Reconciliation now', path: '/reconciliation/current' },
+  { label: 'Reconciliation summary', path: '/reconciliation/summary' },
+  { label: 'Dispute stats', path: '/disputes/stats' },
 ];
 
 /** Everything the merchant sees, read-only, through /admin/merchants/{id}/* */
@@ -99,6 +111,22 @@ export default function AdminMerchantDataPage() {
         description="Exactly what the merchant sees in their workspace. Nothing here can change their data."
       />
 
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-400">
+          Summary views
+        </span>
+        {QUICK_VIEWS.map((item) => (
+          <Button
+            key={item.path}
+            variant="outline"
+            size="sm"
+            onClick={() => view(item.label, item.path)}
+          >
+            {item.label}
+          </Button>
+        ))}
+      </div>
+
       <Tabs
         items={SECTIONS.map(({ value, label }) => ({ value, label }))}
         value={section}
@@ -136,8 +164,12 @@ export default function AdminMerchantDataPage() {
             ) : section === 'customers' ? (
               <CustomerRows
                 rows={rows as CustomerSummary[]}
-                onView={(c) =>
-                  view(c.name ?? c.email ?? 'Customer', `/customers/${c.id}/ledger?limit=50`)
+                onView={(c) => view(c.name ?? c.email ?? 'Customer', `/customers/${c.id}`)}
+                onLedger={(c) =>
+                  view(
+                    `${c.name ?? c.email ?? 'Customer'} ledger`,
+                    `/customers/${c.id}/ledger?limit=50`,
+                  )
                 }
               />
             ) : section === 'fulfillments' ? (
@@ -307,9 +339,11 @@ function OrderRows({ rows, onView }: { rows: Order[]; onView: (o: Order) => void
 function CustomerRows({
   rows,
   onView,
+  onLedger,
 }: {
   rows: CustomerSummary[];
   onView: (c: CustomerSummary) => void;
+  onLedger: (c: CustomerSummary) => void;
 }) {
   return (
     <>
@@ -335,7 +369,17 @@ function CustomerRows({
             <td className="tabular-nums">{c.dispute_count}</td>
             <td className="text-[12px] text-ink-500">{formatDate(c.last_payment_at)}</td>
             <td>
-              <ViewButton onClick={() => onView(c)} />
+              <div className="flex justify-end gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onLedger(c)}
+                  aria-label="View ledger"
+                >
+                  <ReceiptText className="h-3.5 w-3.5" />
+                </Button>
+                <ViewButton onClick={() => onView(c)} />
+              </div>
             </td>
           </tr>
         ))}
