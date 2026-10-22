@@ -87,7 +87,7 @@ export function WebhookCard() {
               </Button>
             </div>
             {webhook.setup_steps.length ? (
-              <ol className="list-decimal space-y-1.5 pl-4 text-[11px] leading-5 text-ink-600">
+              <ol className="list-decimal space-y-1.5 break-words pl-4 text-[11px] leading-5 text-ink-600 [overflow-wrap:anywhere]">
                 {webhook.setup_steps.map((step) => (
                   <li key={step}>{step}</li>
                 ))}
