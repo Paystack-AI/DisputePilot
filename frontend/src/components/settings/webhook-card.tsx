@@ -72,13 +72,14 @@ export function WebhookCard() {
                   : 'No events yet'}
               </span>
             </div>
-            <div className="flex items-center gap-2 rounded-xl bg-ink-50/70 p-2 ring-1 ring-inset ring-line">
-              <code className="min-w-0 flex-1 truncate px-1.5 font-mono text-[11px] text-ink-700">
+            <div className="flex min-w-0 items-start gap-2 overflow-hidden rounded-xl bg-ink-50/70 p-2 ring-1 ring-inset ring-line">
+              <code className="min-w-0 flex-1 select-all break-all px-1.5 font-mono text-[11px] leading-5 text-ink-700">
                 {webhook.url}
               </code>
               <Button
                 size="sm"
                 variant="outline"
+                className="shrink-0"
                 onClick={() => copy(webhook.url)}
                 aria-label="Copy webhook URL"
               >

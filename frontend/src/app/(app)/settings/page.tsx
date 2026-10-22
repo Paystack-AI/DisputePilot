@@ -115,7 +115,7 @@ export default function SettingsPage() {
       />
 
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card>
             <CardHeader
               title="Business profile"
@@ -256,7 +256,7 @@ export default function SettingsPage() {
           </Card>
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card>
             <CardHeader title="Payment source" />
             <CardBody className="space-y-3">
