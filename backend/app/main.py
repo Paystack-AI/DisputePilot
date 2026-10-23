@@ -30,6 +30,9 @@ if SETTINGS.SENTRY_SDK_DSN:
         environment=SETTINGS.ENVIRONMENT,
         enable_logs=True,
         send_default_pii=False,
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+        profile_lifecycle="trace",
     )
 
 
