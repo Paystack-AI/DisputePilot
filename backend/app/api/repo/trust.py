@@ -200,6 +200,27 @@ class SyncTrustRepository:
         self._session.add(snapshot)
         return snapshot
 
+    def recent_snapshots(self, merchant_id: UUID, limit: int = 5) -> list[TrustSnapshot]:
+        """Return bounded prior trust snapshots for the AI's merchant memory."""
+        return list(
+            self._session.scalars(
+                select(TrustSnapshot)
+                .where(TrustSnapshot.merchant_id == merchant_id)
+                .order_by(TrustSnapshot.created_at.desc(), TrustSnapshot.id.desc())
+                .limit(limit)
+            )
+        )
+
+    def all_snapshots(self, merchant_id: UUID) -> list[TrustSnapshot]:
+        """Return the complete durable trust history for memory indexing."""
+        return list(
+            self._session.scalars(
+                select(TrustSnapshot)
+                .where(TrustSnapshot.merchant_id == merchant_id)
+                .order_by(TrustSnapshot.created_at.asc(), TrustSnapshot.id.asc())
+            )
+        )
+
     def active_merchants(self) -> list[UUID]:
         """Merchants the daily run recomputes"""
         return list(

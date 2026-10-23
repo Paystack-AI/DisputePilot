@@ -14,7 +14,6 @@ import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FieldError, Input, Label } from '@/components/ui/input';
 import { ApiError, apiRequest, errorMessage } from '@/lib/api';
-import type { Token } from '@/lib/types';
 import { useAuthStore } from '@/stores/auth';
 
 const schema = z.object({
@@ -46,13 +45,13 @@ function LoginForm() {
   const onSubmit = async (values: FormValues) => {
     setFormError(null);
     try {
-      const token = await apiRequest<Token>('/auth/login', {
+      await apiRequest('/auth/login', {
         method: 'POST',
         body: values,
         noRefresh: true,
         noRedirect: true,
       });
-      setSession(token);
+      setSession();
       toast.success('Welcome back');
       router.replace(next && next.startsWith('/') ? next : '/');
     } catch (error) {

@@ -10,7 +10,6 @@ import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input, Label } from '@/components/ui/input';
 import { apiRequest, errorMessage } from '@/lib/api';
-import type { Token } from '@/lib/types';
 import { useAuthStore } from '@/stores/auth';
 
 const ERRORS: Record<string, string> = {
@@ -39,14 +38,14 @@ function GoogleReturn() {
     // the code is single use: never send it twice (strict mode runs effects twice)
     if (!code || exchanged.current) return;
     exchanged.current = true;
-    apiRequest<Token>('/auth/google/exchange', {
+    apiRequest('/auth/google/exchange', {
       method: 'POST',
       body: { code },
       noRefresh: true,
       noRedirect: true,
     })
-      .then((token) => {
-        setSession(token);
+      .then(() => {
+        setSession();
         toast.success('Signed in with Google');
         router.replace('/');
       })
@@ -58,13 +57,13 @@ function GoogleReturn() {
     setError(null);
     setSaving(true);
     try {
-      const token = await apiRequest<Token>('/auth/google/complete', {
+      await apiRequest('/auth/google/complete', {
         method: 'POST',
         body: { signup_token: signupToken, business_name: businessName.trim() },
         noRefresh: true,
         noRedirect: true,
       });
-      setSession(token);
+      setSession();
       toast.success('Your workspace is ready');
       router.replace('/onboarding');
     } catch (err) {

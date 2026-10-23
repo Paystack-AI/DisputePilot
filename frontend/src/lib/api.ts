@@ -1,11 +1,8 @@
 import {
   clearAdminToken,
   clearSession,
-  getAdminToken,
-  getSession,
-  setSession,
 } from './auth-storage';
-import type { ApiErrorPayload, FileRef, PageMeta, Token } from './types';
+import type { ApiErrorPayload, FileRef, PageMeta } from './types';
 
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -44,26 +41,20 @@ export class ApiError extends Error {
   }
 }
 
-let merchantRefresh: Promise<Token | null> | null = null;
+let merchantRefresh: Promise<boolean> | null = null;
 
-export async function refreshMerchantSession(): Promise<Token | null> {
+export async function refreshMerchantSession(): Promise<boolean> {
   if (merchantRefresh) return merchantRefresh;
-  const session = getSession();
-  if (!session?.refresh_token) return null;
 
   merchantRefresh = (async () => {
     try {
       const response = await fetch('/api/proxy/auth/refresh', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: session.refresh_token }),
       });
-      if (!response.ok) return null;
-      const payload = (await response.json()) as Envelope<Token>;
-      setSession(payload.data);
-      return payload.data;
+      return response.ok;
     } catch {
-      return null;
+      return false;
     } finally {
       merchantRefresh = null;
     }
@@ -106,7 +97,6 @@ async function parseError(response: Response): Promise<ApiError> {
 async function perform<T>(
   path: string,
   options: RequestOptions,
-  token: string | null,
   retry = true,
 ): Promise<T> {
   const headers: Record<string, string> = { ...options.headers };
@@ -115,8 +105,6 @@ async function perform<T>(
   if (options.body !== undefined && !isForm) {
     headers['Content-Type'] = 'application/json';
   }
-  if (token) headers.Authorization = `Bearer ${token}`;
-
   const response = await fetch(`/api/proxy${path}`, {
     method: options.method ?? 'GET',
     headers,
@@ -135,7 +123,7 @@ async function perform<T>(
       if (!options.noRedirect) redirect('/admin/login');
     } else {
       const refreshed = await refreshMerchantSession();
-      if (refreshed) return perform<T>(path, options, refreshed.access_token, false);
+      if (refreshed) return perform<T>(path, options, false);
       clearSession();
       if (!options.noRedirect) redirect('/login');
     }
@@ -150,8 +138,7 @@ async function perform<T>(
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const token = options.admin ? getAdminToken() : (getSession()?.access_token ?? null);
-  const payload = await perform<Envelope<T> | undefined>(path, options, token);
+  const payload = await perform<Envelope<T> | undefined>(path, options);
   // a 204 has no body, so no envelope
   return payload?.data as T;
 }
@@ -160,19 +147,32 @@ export async function apiList<T>(
   path: string,
   options: RequestOptions = {},
 ): Promise<ListEnvelope<T>> {
-  const token = options.admin ? getAdminToken() : (getSession()?.access_token ?? null);
-  return perform<ListEnvelope<T>>(path, options, token);
+  return perform<ListEnvelope<T>>(path, options);
 }
 
 export async function apiBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
-  const token = options.admin ? getAdminToken() : (getSession()?.access_token ?? null);
-  const headers: Record<string, string> = { ...options.headers };
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const response = await fetch(`/api/proxy${path}`, {
-    method: options.method ?? 'GET',
-    headers,
-    signal: options.signal,
-  });
+  async function request(): Promise<Response> {
+    const headers: Record<string, string> = { ...options.headers };
+    return fetch(`/api/proxy${path}`, {
+      method: options.method ?? 'GET',
+      headers,
+      signal: options.signal,
+    });
+  }
+
+  let response = await request();
+  if (response.status === 401 && !options.noRefresh) {
+    if (options.admin) {
+      clearAdminToken();
+      if (!options.noRedirect) redirect('/admin/login');
+    } else if (await refreshMerchantSession()) {
+      response = await request();
+    } else {
+      clearSession();
+      if (!options.noRedirect) redirect('/login');
+    }
+  }
+
   if (!response.ok) throw await parseError(response);
   return response.blob();
 }
@@ -208,10 +208,6 @@ export function errorMessage(error: unknown) {
   }
   if (error instanceof Error) return error.message;
   return 'Something went wrong. Please try again.';
-}
-
-export function logIn(token: Token) {
-  setSession(token);
 }
 
 export function logOutMerchant() {

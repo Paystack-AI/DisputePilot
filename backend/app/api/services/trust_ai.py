@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.models.trust_profiles import TrustProfile
 from app.api.models.trust_snapshots import TrustSnapshot
+from app.api.repo.ai_memory import AiMemoryRepository
 from app.api.repo.trust import TrustRepository
 from app.api.repo.uow import UnitOfWorkRepository
 from app.api.services.ai_streams import AI_RESULT_HANDLERS, StreamMessage
@@ -64,6 +65,19 @@ async def on_trust_explained(message: StreamMessage):
         profile.recommendations = _actions(message.payload.get("recommendations"))
         profile.explained_at = datetime.now(UTC)
         profile.explain_job_id = None
+        await AiMemoryRepository(session).remember(
+            tenant_id=profile.merchant_id,
+            merchant_id=profile.merchant_id,
+            memory_type="trust_explanation",
+            source_type="trust_explanation_job",
+            source_id=message.job_id,
+            content={
+                "explanation": profile.explanation,
+                "recommendations": profile.recommendations,
+                "state": profile.current_state.value,
+            },
+            occurred_at=profile.explained_at,
+        )
         await uow.commit()
         actions: int = len(profile.recommendations)
 

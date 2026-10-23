@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { ArrowRight, Eye, EyeOff, Loader2, Lock, ShieldCheck } from 'lucide-react';
 import { apiRequest, errorMessage } from '@/lib/api';
-import type { AdminToken } from '@/lib/types';
 import { useAdminAuthStore } from '@/stores/admin-auth';
 import { Brand } from '@/components/brand';
 import { Input } from '@/components/ui/input';
@@ -26,15 +25,15 @@ export default function AdminLoginPage() {
 
   const login = useMutation({
     mutationFn: () =>
-      apiRequest<AdminToken>('/admin/auth/login', {
+      apiRequest('/admin/auth/login', {
         method: 'POST',
         body: { email: email.trim(), password },
         admin: true,
         noRefresh: true,
         noRedirect: true,
       }),
-    onSuccess: (data) => {
-      setToken(data.access_token);
+    onSuccess: () => {
+      setToken();
       router.replace('/admin');
     },
     onError: (mutationError) => setError(errorMessage(mutationError)),

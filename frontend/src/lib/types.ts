@@ -61,15 +61,12 @@ export interface PageMeta {
   server_time?: string;
 }
 
-export interface Token {
-  access_token: string;
-  refresh_token: string;
+export interface SessionInfo {
   token_type: string;
   expires_in: number;
 }
 
-export interface AdminToken {
-  access_token: string;
+export interface AdminSessionInfo {
   token_type: string;
   expires_in: number;
 }

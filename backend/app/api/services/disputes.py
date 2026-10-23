@@ -30,6 +30,7 @@ from app.api.repo.disputes import (
     DisputeLinks,
     DisputeRepository,
 )
+from app.api.repo.ai_memory import AiMemoryRepository
 from app.api.repo.files import FileRepository
 from app.api.repo.readiness import ReadinessRepository
 from app.api.repo.uow import UnitOfWorkRepository
@@ -131,6 +132,26 @@ class DisputeService:
         self._uow = uow
         self._disputes = uow.repo(DisputeRepository)
         self._builder = EvidenceDocumentBuilder(uow)
+        self._memory = uow.repo(AiMemoryRepository)
+
+    async def _remember_revision(self, merchant: Merchant, revision: EvidenceRevision):
+        await self._uow.flush()
+        await self._memory.remember(
+            tenant_id=merchant.id,
+            merchant_id=merchant.id,
+            dispute_id=revision.dispute_id,
+            memory_type="evidence_revision",
+            source_type="evidence_revision",
+            source_id=str(revision.id),
+            content={
+                "version": revision.version,
+                "change": revision.change.value,
+                "reason": revision.reason,
+                "narrative": revision.narrative,
+                "conclusion": revision.conclusion,
+            },
+            occurred_at=revision.created_at,
+        )
 
     async def _get(
         self, merchant: Merchant, dispute_id: UUID, for_update: bool = False
@@ -412,7 +433,7 @@ class DisputeService:
             dispute.evidence_state = EvidenceState.READY
 
         context: EvidenceContext = await self._builder.load(links)
-        self._disputes.add_revision(
+        revision = self._disputes.add_revision(
             EvidenceRevision(
                 dispute_id=dispute.id,
                 merchant_id=merchant.id,
@@ -425,6 +446,7 @@ class DisputeService:
                 created_at=now,
             )
         )
+        await self._remember_revision(merchant, revision)
         await self._commit(merchant.id, "editing dispute evidence")
 
         sentry_logger.info(
@@ -519,7 +541,7 @@ class DisputeService:
         dispute.evidence_pdf_object = None
         dispute.paystack_uploaded_filename = None
         dispute.evidence_version += 1
-        self._disputes.add_revision(
+        revision = self._disputes.add_revision(
             EvidenceRevision(
                 dispute_id=dispute.id,
                 merchant_id=merchant.id,
@@ -539,6 +561,7 @@ class DisputeService:
                 created_at=now,
             )
         )
+        await self._remember_revision(merchant, revision)
         await self._commit(merchant.id, "submitting a dispute")
         await self._queue(submit_dispute, {"dispute_id": str(dispute.id)})
 

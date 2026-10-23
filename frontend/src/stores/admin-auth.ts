@@ -8,19 +8,19 @@ import {
 } from '@/lib/auth-storage';
 
 type AdminAuthState = {
-  token: string | null;
-  setToken: (token: string) => void;
+  token: boolean;
+  setToken: () => void;
   clear: () => void;
 };
 
 export const useAdminAuthStore = create<AdminAuthState>((set) => ({
   token: getAdminToken(),
-  setToken: (token) => {
-    persistAdminToken({ access_token: token });
-    set({ token });
+  setToken: () => {
+    persistAdminToken();
+    set({ token: true });
   },
   clear: () => {
     clearAdminToken();
-    set({ token: null });
+    set({ token: false });
   },
 }));
