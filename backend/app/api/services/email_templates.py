@@ -20,6 +20,10 @@ INK_200 = "#e2e6ec"
 INK_50 = "#f7f8fa"
 BRAND_600 = "#1d57eb"
 
+# the logo travels with the email as an inline attachment, so it renders even when
+# FRONTEND_URL is a local address the recipient's mail server cannot reach
+LOGO_CID = "disputepilot-logo"
+
 # subject and the line that says what the code is for, per purpose
 OTP_EMAILS: dict[OtpPurpose, tuple[str, str]] = {
     OtpPurpose.EMAIL_VERIFICATION: (
@@ -107,7 +111,7 @@ def _layout(
     footer_note: str | None = None,
 ) -> str:
     app_url: str = _app_url()
-    logo_url: str = f"{app_url}/logo.png"
+    logo_url: str = f"cid:{LOGO_CID}"
     eyebrow_html: str = (
         f'<p style="margin:0 0 10px;font-family:{FONT};font-size:11px;font-weight:700;'
         f'letter-spacing:1.4px;text-transform:uppercase;color:{BRAND_600}">{escape(eyebrow)}</p>'

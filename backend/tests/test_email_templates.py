@@ -2,6 +2,7 @@ from datetime import UTC, date, datetime
 
 from app.api.models.enums import OtpPurpose
 from app.api.services.email_templates import (
+    LOGO_CID,
     deadline_warning_email,
     dispute_alert_email,
     dispute_resolved_email,
@@ -33,7 +34,7 @@ class TestReconciliationSummary:
         )
 
         assert subject == "DisputePilot: Reconciliation for 01 Oct to 07 Oct 2026"
-        assert f'src="{_frontend_url()}/logo.png"' in html
+        assert f'src="cid:{LOGO_CID}"' in html
         assert f'href="{_frontend_url()}/reconciliation"' in html
         assert "Review reconciliation" in html
 
@@ -86,7 +87,7 @@ class TestOtherEmails:
 
         assert subject == "DisputePilot: Verify your email"
         assert "123456" in html
-        assert f'src="{_frontend_url()}/logo.png"' in html
+        assert f'src="cid:{LOGO_CID}"' in html
         assert "expires in 15 minutes" in html
 
     def test_google_only_reset_links_to_sign_in(self):
