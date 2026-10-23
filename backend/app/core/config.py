@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     # environment
     ENVIRONMENT: str = "development"
 
+    # sentry; empty disables the sdk (no events or logs are sent)
+    SENTRY_SDK_DSN: str = ""
+
     # api details
     API_PREFIX: str = "/api/v1"
     API_TITLE: str = "DisputePilot"

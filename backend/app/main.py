@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 
+import sentry_sdk
 import sentry_sdk.logger as sentry_logger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,6 +22,15 @@ from app.middleware import RequestIDMiddleware
 
 SECURITY = Security()
 SETTINGS = get_settings()
+
+# before the app is created so the sdk can instrument it; empty dsn disables sentry
+if SETTINGS.SENTRY_SDK_DSN:
+    sentry_sdk.init(
+        dsn=SETTINGS.SENTRY_SDK_DSN,
+        environment=SETTINGS.ENVIRONMENT,
+        enable_logs=True,
+        send_default_pii=False,
+    )
 
 
 @asynccontextmanager
