@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import Session
 
 from app.api.models.disputes import Dispute
+from app.api.models.ai_memories import AiMemory
 from app.api.models.enums import DisputeStatus, TrustState
 from app.api.models.transactions import Transaction
 from app.api.models.trust_profiles import TrustProfile
@@ -71,6 +72,7 @@ class TestJobsSent:
             select(TrustProfile).where(TrustProfile.merchant_id == merchant.id)
         )
         assert profile.explain_job_id == job.job_id
+        assert job.payload["memory"]["recentMemories"]
 
     @pytest.mark.asyncio
     async def test_a_state_change_asks_for_a_summary(self, sync_db: Session):
@@ -184,6 +186,15 @@ class TestAnswers:
             "You are Building: fulfillment is at 55%; verified needs 70%."
         )
         assert profile.explain_job_id is None
+        async with session_maker() as session:
+            memory = await session.scalar(
+                select(AiMemory).where(
+                    AiMemory.merchant_id == merchant,
+                    AiMemory.source_type == "trust_explanation_job",
+                )
+            )
+        assert memory is not None
+        assert memory.content["explanation"].startswith("You are Building")
         events = await test_redis_client.xrange(stream_key(merchant))
         assert events[-1][1]["type"] == "trust.explained"
         assert json.loads(events[-1][1]["data"])["actions"] == 1

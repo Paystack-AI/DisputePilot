@@ -20,6 +20,7 @@ jobs:
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
       ai: ${{ steps.filter.outputs.ai }}
+      deployment: ${{ steps.filter.outputs.deployment }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -32,6 +33,27 @@ jobs:
               - 'backend/**'
             ai:
               - 'ai/**'
+            deployment:
+              - 'compose.production.yml'
+              - 'Caddyfile'
+              - '.env.production.example'
+              - 'ai/.env.production.example'
+              - 'docker/**'
+              - '.github/workflows/ci.yml'
+
+  deployment:
+    needs: changes
+    if: needs.changes.outputs.deployment == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare example environment files
+        run: |
+          cp .env.production.example .env.production
+          cp ai/.env.production.example ai/.env.production
+      - name: Validate production Compose configuration
+        run: docker compose --env-file .env.production -f compose.production.yml config --quiet
 
   frontend:
     needs: changes

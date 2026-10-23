@@ -48,10 +48,12 @@ Public and operator:
 
 ## Auth model
 
-Merchant access and refresh tokens are stored client-side and attached by the API client. A 401
-triggers a single refresh attempt and retries the request; failed refresh returns the user to
-`/login`. Admin sessions use a separate token and `/admin/login`; the API client clears the admin
-token on 401.
+The same-origin Next.js API route forwards requests to FastAPI. It stores merchant access and
+refresh tokens and admin access tokens in `HttpOnly`, same-site cookies, then adds bearer
+authorization on the server side. The browser only receives session metadata and a non-secret UI
+marker cookie. A 401 triggers one refresh attempt and retries the request; failed refresh returns
+the merchant to `/login`. Admin sessions use a separate cookie and `/admin/login`. Mutating
+requests with authenticated cookies must include the app's exact origin.
 
 ## Checks
 
@@ -73,6 +75,5 @@ From the repository root:
 docker compose up --build disputepilot_frontend
 ```
 
-The frontend listens on port 3000. The Docker build bakes `BACKEND_INTERNAL_URL` into the proxy
-rewrite, so pass it as a build arg when targeting a different host. The image uses Next.js
-standalone output and runs as a non-root user.
+The frontend listens on port 3000. The Next.js server reads `BACKEND_INTERNAL_URL` at runtime.
+The image uses Next.js standalone output and runs as a non-root user.

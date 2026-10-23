@@ -22,6 +22,7 @@ from app.api.models.enums import (
     ReconciliationStatus,
 )
 from app.api.models.evidence_revisions import EvidenceRevision
+from app.api.models.ai_memories import AiMemory
 from app.api.models.files import StoredFile
 from app.api.models.merchants import Merchant
 from app.api.services import dispute_ai
@@ -351,7 +352,10 @@ class TestEvidenceChain:
         }
         async with session_maker() as session:
             revision = await session.scalar(select(EvidenceRevision))
+            memory = await session.scalar(select(AiMemory).where(AiMemory.dispute_id == dispute_id))
         assert (revision.version, revision.change) == (1, EvidenceChange.GENERATED)
+        assert memory is not None
+        assert memory.content["narrative"].startswith("On 1 May")
 
     @pytest.mark.asyncio
     async def test_stale_result_is_ignored(

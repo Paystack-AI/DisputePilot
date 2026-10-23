@@ -21,3 +21,10 @@ RUN uv sync --frozen --no-dev --no-install-project
 ENV PATH="/backend/.venv/bin:$PATH"
 
 COPY . .
+
+RUN addgroup --system --gid 10001 app \
+    && adduser --system --uid 10001 --ingroup app app \
+    && mkdir -p /beat \
+    && chown app:app /beat
+
+USER app

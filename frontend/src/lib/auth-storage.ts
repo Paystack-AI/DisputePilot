@@ -1,48 +1,37 @@
-import type { Token } from './types';
+const MERCHANT_MARKER = 'dp_session';
+const ADMIN_MARKER = 'dp_admin';
 
-const SESSION_KEY = 'disputepilot.session';
-const ADMIN_KEY = 'disputepilot.admin';
-
-function read<T>(key: string): T | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
+function hasCookie(name: string): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.cookie.split('; ').some((cookie) => cookie.startsWith(`${name}=1`));
 }
 
-function write(key: string, value: unknown) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(key, JSON.stringify(value));
+function writeMarker(name: string, present: boolean, maxAge = 60 * 60 * 24 * 30) {
+  if (typeof document === 'undefined') return;
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${name}=${present ? '1' : ''}; Path=/; Max-Age=${present ? maxAge : 0}; SameSite=Lax${secure}`;
 }
 
-function remove(key: string) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(key);
+export function getSession(): boolean {
+  return hasCookie(MERCHANT_MARKER);
 }
 
-export function getSession(): Token | null {
-  return read<Token>(SESSION_KEY);
-}
-
-export function setSession(token: Token) {
-  write(SESSION_KEY, token);
+export function setSession() {
+  writeMarker(MERCHANT_MARKER, true);
 }
 
 export function clearSession() {
-  remove(SESSION_KEY);
+  writeMarker(MERCHANT_MARKER, false);
 }
 
-export function getAdminToken(): string | null {
-  return read<{ access_token: string }>(ADMIN_KEY)?.access_token ?? null;
+export function getAdminToken(): boolean {
+  return hasCookie(ADMIN_MARKER);
 }
 
-export function setAdminToken(token: { access_token: string }) {
-  write(ADMIN_KEY, token);
+export function setAdminToken() {
+  writeMarker(ADMIN_MARKER, true, 60 * 60);
 }
 
 export function clearAdminToken() {
-  remove(ADMIN_KEY);
+  writeMarker(ADMIN_MARKER, false);
 }

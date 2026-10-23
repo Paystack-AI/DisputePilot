@@ -5,8 +5,6 @@ RUN npm ci
 
 FROM node:24-alpine AS builder
 WORKDIR /app
-ARG BACKEND_INTERNAL_URL=http://disputepilot_api:8000
-ENV BACKEND_INTERNAL_URL=$BACKEND_INTERNAL_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

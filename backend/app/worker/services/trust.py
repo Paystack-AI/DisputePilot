@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 from app.api.models.enums import TrustState
 from app.api.models.trust_profiles import TrustProfile
 from app.api.models.trust_snapshots import TrustSnapshot
+from app.api.repo.ai_memory import SyncAiMemoryRepository
 from app.api.repo.trust import SyncTrustRepository
+from app.core.config import get_settings
 from app.api.services.readiness import REPEAT_CUSTOMER_PAYMENTS, ReadinessFacts, score_readiness
 from app.api.services.trust_policy import (
     BUILDING,
@@ -103,6 +105,7 @@ def _percent(part: int, whole: int) -> float | None:
 
 def compute_signals(session: Session, merchant_id: UUID, now: datetime) -> TrustSignals:
     repo = SyncTrustRepository(session)
+    memory_repo = SyncAiMemoryRepository(session)
     counts: dict = repo.aggregates(
         merchant_id, now, RECONCILIATION_DAYS, FULFILLMENT_DAYS, DISPUTE_DAYS
     )
@@ -176,6 +179,26 @@ def recompute_trust_profile(session: Session, merchant_id: UUID, reason: str) ->
         )
         session.flush()
 
+        # Materialize every source snapshot once. Storage is unbounded; only the request
+        # context is bounded by AI_MEMORY_CONTEXT_LIMIT.
+        for item in repo.all_snapshots(merchant_id):
+            memory_repo.remember(
+                tenant_id=merchant_id,
+                merchant_id=merchant_id,
+                memory_type="trust_snapshot",
+                source_type="trust_snapshot",
+                source_id=str(item.id),
+                content={
+                    "state": item.state.value,
+                    "internal_score": item.internal_score,
+                    "signals": item.signals,
+                    "reason": item.reason,
+                    "summary": item.summary,
+                },
+                occurred_at=item.created_at,
+            )
+        session.flush()
+
         # a fresh explanation of the new profile; an answer to an older job is ignored
         explain_id: str = str(uuid4())
         profile.explain_job_id = explain_id
@@ -193,6 +216,23 @@ def recompute_trust_profile(session: Session, merchant_id: UUID, reason: str) ->
                     "signals": _profile_signals(profile),
                     "sample": sample,
                     "policyThresholds": _policy_thresholds(),
+                    "memory": {
+                        "previousExplanation": profile.explanation,
+                        "previousRecommendations": profile.recommendations or [],
+                        "recentMemories": [
+                            {
+                                "source_type": item.source_type,
+                                "source_id": item.source_id,
+                                "occurred_at": item.occurred_at.isoformat(),
+                                "content": item.content,
+                            }
+                            for item in memory_repo.retrieve(
+                                tenant_id=merchant_id,
+                                merchant_id=merchant_id,
+                                limit=get_settings().AI_MEMORY_CONTEXT_LIMIT,
+                            )
+                        ],
+                    },
                 },
             )
         )

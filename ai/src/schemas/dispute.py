@@ -60,6 +60,8 @@ class EvidenceRequest(JobRequest):
     supporting_documents: list[dict[str, Any]] = Field(default_factory=list)
     evidence_strategy: list[str] | None = None
     special_instructions: str | None = None
+    # Bounded prior revisions supplied by the backend; the model has no hidden memory.
+    memory: list[dict[str, Any]] = Field(default_factory=list)
 
 
 class EvidenceGeneratedResult(JobResult):

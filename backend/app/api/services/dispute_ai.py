@@ -34,6 +34,7 @@ from app.api.models.enums import (
 from app.api.models.evidence_revisions import EvidenceRevision
 from app.api.models.merchants import Merchant
 from app.api.repo.disputes import DisputeRepository
+from app.api.repo.ai_memory import AiMemoryRepository
 from app.api.repo.merchants import MerchantRepository
 from app.api.repo.uow import UnitOfWorkRepository
 from app.api.schemas.disputes import EvidenceDocument
@@ -97,6 +98,7 @@ class EvidenceChain:
         self._uow = uow
         self._redis = redis
         self._disputes = uow.repo(DisputeRepository)
+        self._memory = uow.repo(AiMemoryRepository)
         self._builder = EvidenceDocumentBuilder(uow)
 
     # ------------------------------ steps ------------------------------ #
@@ -118,7 +120,50 @@ class EvidenceChain:
         context: EvidenceContext = await self._context(dispute)
         document: EvidenceDocument = self._builder.build(merchant, context)
         if step == EvidenceStep.GENERATE:
-            return self._builder.ai_context(document, dispute, context.transaction)
+            payload = self._builder.ai_context(document, dispute, context.transaction)
+            try:
+                revisions = await self._disputes.all_revisions(dispute.id)
+                for revision in revisions:
+                    await self._memory.remember(
+                        tenant_id=merchant.id,
+                        merchant_id=merchant.id,
+                        dispute_id=dispute.id,
+                        memory_type="evidence_revision",
+                        source_type="evidence_revision",
+                        source_id=str(revision.id),
+                        content={
+                            "version": revision.version,
+                            "change": revision.change.value,
+                            "reason": revision.reason,
+                            "narrative": revision.narrative,
+                            "conclusion": revision.conclusion,
+                        },
+                        occurred_at=revision.created_at,
+                    )
+                memories = await self._memory.retrieve(
+                    tenant_id=merchant.id,
+                    merchant_id=merchant.id,
+                    dispute_id=dispute.id,
+                    query=f"{dispute.reason_raw or ''} {dispute.category or ''}",
+                    limit=SETTINGS.AI_MEMORY_CONTEXT_LIMIT,
+                )
+                payload["memory"] = [
+                    {
+                        "source_type": item.source_type,
+                        "source_id": item.source_id,
+                        "occurred_at": item.occurred_at.isoformat(),
+                        "content": item.content,
+                    }
+                    for item in memories
+                ]
+            except Exception as exc:
+                sentry_sdk.capture_exception(exc)
+                sentry_logger.warning(
+                    "AI memory retrieval failed for dispute {dispute_id}; continuing without memory",
+                    dispute_id=str(dispute.id),
+                )
+                payload["memory"] = []
+            return payload
         return {
             "disputeId": str(dispute.id),
             "narrative": dispute.evidence_narrative,
@@ -165,7 +210,7 @@ class EvidenceChain:
             dispute.status = DisputeStatus.EVIDENCE_GENERATED
 
         context: EvidenceContext = await self._context(dispute)
-        self._disputes.add_revision(
+        revision = self._disputes.add_revision(
             EvidenceRevision(
                 dispute_id=dispute.id,
                 merchant_id=merchant.id,
@@ -177,6 +222,23 @@ class EvidenceChain:
                 documents=[{"file_id": str(d.id), "caption": d.caption} for d in context.documents],
                 created_at=now,
             )
+        )
+        await self._uow.flush()
+        await self._memory.remember(
+            tenant_id=merchant.id,
+            merchant_id=merchant.id,
+            dispute_id=dispute.id,
+            memory_type="evidence_revision",
+            source_type="evidence_revision",
+            source_id=str(revision.id),
+            content={
+                "version": revision.version,
+                "change": revision.change.value,
+                "reason": revision.reason,
+                "narrative": revision.narrative,
+                "conclusion": revision.conclusion,
+            },
+            occurred_at=revision.created_at,
         )
         await self._uow.commit()
 

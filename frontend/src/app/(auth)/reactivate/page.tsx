@@ -10,7 +10,6 @@ import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FieldHint, Input, Label } from '@/components/ui/input';
 import { apiRequest, errorMessage } from '@/lib/api';
-import type { Token } from '@/lib/types';
 import { useAuthStore } from '@/stores/auth';
 import { GoogleButton } from '@/components/auth/google-button';
 
@@ -47,13 +46,13 @@ function ReactivateForm() {
     setError(null);
     setBusy(true);
     try {
-      const token = await apiRequest<Token>('/auth/reactivate', {
+      await apiRequest('/auth/reactivate', {
         method: 'POST',
         body: { email, otp_code: code },
         noRefresh: true,
         noRedirect: true,
       });
-      setSession(token);
+      setSession();
       toast.success('Welcome back. Your account is active again.');
       router.replace('/');
     } catch (err) {

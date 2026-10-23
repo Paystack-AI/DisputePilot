@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.schemas.base import JobRequest, JobResult, LLMOutput
 from src.schemas.enums import TrustState
@@ -28,6 +28,8 @@ class TrustExplainRequest(JobRequest):
     # payments_30d and days_on_platform: below the minimum the state is new
     sample: dict[str, int] | None = None
     policy_thresholds: dict[str, Any]
+    # Bounded merchant history supplied by the backend; policy remains authoritative.
+    memory: dict[str, Any] = Field(default_factory=dict)
 
 
 class TrustExplainedResult(JobResult):

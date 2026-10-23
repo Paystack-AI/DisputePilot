@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -128,6 +129,8 @@ class Settings(BaseSettings):
     AI_STEP_TIMEOUT_SECONDS: int = 60
     # how often the api checks for such steps
     AI_TIMEOUT_SWEEP_SECONDS: int = 15
+    # Maximum durable memory entries included in a single model request.
+    AI_MEMORY_CONTEXT_LIMIT: int = 20
     # Minio
     MINIO_ENDPOINT: str
     MINIO_SECRET_KEY: str
@@ -147,6 +150,27 @@ class Settings(BaseSettings):
     UPLOAD_MAX_IMAGE_PIXELS: int = 50_000_000
     # uploads never attached to a fulfillment (or dispute) are deleted after this
     UPLOAD_UNATTACHED_TTL_HOURS: int = 24
+
+    @model_validator(mode="after")
+    def reject_production_placeholders(self):
+        if self.ENVIRONMENT.lower() == "production":
+            placeholders = ("replace-me", "replace-with", "your_", "example.com")
+            configured = {
+                name: value
+                for name, value in self.model_dump().items()
+                if isinstance(value, str)
+            }
+            unresolved = [
+                name
+                for name, value in configured.items()
+                if any(token in value.lower() for token in placeholders)
+            ]
+            if unresolved:
+                raise ValueError(
+                    "Production settings contain unresolved placeholders: "
+                    + ", ".join(sorted(unresolved))
+                )
+        return self
 
 
 @lru_cache(maxsize=1)

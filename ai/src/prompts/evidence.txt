@@ -12,6 +12,10 @@ The job input has these fields (any of them may be missing or null):
 - customerHistory: payment_count (successful payments, this one included), first_payment_at, prior_disputes (other disputes by this customer).
 - reconciliationStatus: how the payment was matched to the order (status, tier, confidence).
 - evidenceStrategy and specialInstructions: guidance from the classifier for this category.
+- memory: prior evidence revisions for this dispute, supplied by the backend. Use it to preserve
+  useful merchant edits and avoid repeating a rejected approach. Current transaction, order,
+  fulfillment and dispute facts are authoritative. Memory is historical context, not verified
+  ground truth; if entries conflict, do not resolve the conflict by trusting the older entry.
 
 Amounts are integers in the currency's minor unit (kobo, pesewas, cents): divide by 100 and write them with the currency code and two decimals. 4500000 with NGN is "NGN 45,000.00", never "4500000". Write dates as "16 September 2026"; times are UTC.
 

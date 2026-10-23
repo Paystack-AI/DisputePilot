@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { refreshMerchantSession } from '@/lib/api';
-import { getSession } from '@/lib/auth-storage';
 
 // the query keys each server event makes stale
 const INVALIDATES: Record<string, string[][]> = {
@@ -51,8 +50,8 @@ function parse(buffer: string, onEvent: (event: ServerEvent) => void): string {
 
 /**
  * Keeps one live connection to GET /events while the merchant is signed in, and refreshes
- * the screens an event touches. A fetch stream rather than EventSource so the bearer token
- * goes in the Authorization header, the same way every other call is authenticated.
+ * the screens an event touches. A fetch stream rather than EventSource so it can send the
+ * Last-Event-ID header and keep the connection in the same-origin authenticated proxy.
  */
 export function useLiveEvents() {
   const queryClient = useQueryClient();
@@ -76,16 +75,10 @@ export function useLiveEvents() {
 
     const connect = async () => {
       if (stopped) return;
-      const token = getSession()?.access_token;
-      if (!token) return;
-
       controller = new AbortController();
       let expired = false;
       try {
-        const headers: Record<string, string> = {
-          Accept: 'text/event-stream',
-          Authorization: `Bearer ${token}`,
-        };
+        const headers: Record<string, string> = { Accept: 'text/event-stream' };
         if (lastEventId) headers['Last-Event-ID'] = lastEventId;
         const response = await fetch('/api/proxy/events', { headers, signal: controller.signal });
 

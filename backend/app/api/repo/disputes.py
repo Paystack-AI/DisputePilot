@@ -430,6 +430,27 @@ class DisputeRepository(BaseRepository[BaseModel, Dispute]):
         self._async_session.add(revision)
         return revision
 
+    async def recent_revisions(self, dispute_id: UUID, limit: int = 5) -> list[EvidenceRevision]:
+        """Return bounded prior evidence versions for the AI's dispute memory."""
+        return list(
+            await self._async_session.scalars(
+                select(EvidenceRevision)
+                .where(EvidenceRevision.dispute_id == dispute_id)
+                .order_by(EvidenceRevision.version.desc())
+                .limit(limit)
+            )
+        )
+
+    async def all_revisions(self, dispute_id: UUID) -> list[EvidenceRevision]:
+        """Return the complete durable revision history for memory indexing."""
+        return list(
+            await self._async_session.scalars(
+                select(EvidenceRevision)
+                .where(EvidenceRevision.dispute_id == dispute_id)
+                .order_by(EvidenceRevision.version.asc())
+            )
+        )
+
     async def stats(self, merchant_id: UUID) -> dict[str, Any]:
         responded = Dispute.submitted_at.is_not(None)
         row = (

@@ -11,6 +11,11 @@ The job input has:
   - evidence_readiness: the average dispute readiness score of matched payments (higher is better).
 - sample: payments_30d and days_on_platform. Below the minimum sample the state is new whatever the signals.
 - policyThresholds: the thresholds each state requires.
+- memory: prior explanations, recommendations and recent memories supplied by the backend.
+  Use it only to keep the explanation consistent and acknowledge meaningful continuity. The
+  current state, signals and policy thresholds are authoritative; never override them with memory.
+  Memory is historical context, not verified ground truth; if it conflicts with current input,
+  ignore the historical value.
 
 Write explanation as 2 or 3 sentences in the second person ("Your reconciliation rate is 92%"). Name the state, then the signals that decide it, with their values and the threshold they meet or miss. For new, say what is missing from the sample (for example "You have 6 payments in the last 30 days; 10 are needed") rather than discussing the signals. Round percentages to whole numbers.
 
