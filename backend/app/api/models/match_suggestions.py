@@ -29,7 +29,9 @@ class MatchSuggestion(Base):
     __tablename__ = "match_suggestions"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE")
+    )
     transaction_id: Mapped[uuid.UUID] = mapped_column(
         UUID, ForeignKey("transactions.id", ondelete="CASCADE")
     )

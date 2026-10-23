@@ -39,8 +39,12 @@ class Dispute(Base):
     __tablename__ = "disputes"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
-    transaction_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("transactions.id"))
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE")
+    )
+    transaction_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("transactions.id", ondelete="CASCADE")
+    )
     paystack_dispute_id: Mapped[int] = mapped_column(BIGINT)
     paystack_reference: Mapped[str] = mapped_column(VARCHAR(100))
     amount: Mapped[int] = mapped_column(BIGINT)

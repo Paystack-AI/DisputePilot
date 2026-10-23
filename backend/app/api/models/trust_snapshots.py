@@ -26,7 +26,9 @@ class TrustSnapshot(Base):
     __tablename__ = "trust_snapshots"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE")
+    )
     state: Mapped[TrustState] = mapped_column(
         PgEnum(
             TrustState,

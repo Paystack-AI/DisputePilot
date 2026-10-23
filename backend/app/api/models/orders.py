@@ -26,9 +26,11 @@ class Order(Base):
     __tablename__ = "orders"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE")
+    )
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID, ForeignKey("customers.id"), index=True
+        UUID, ForeignKey("customers.id", ondelete="SET NULL"), index=True
     )
     # optional, entered by the merchant; matched against paystack metadata or the reference
     # (tier 1), so unique per merchant ignoring case

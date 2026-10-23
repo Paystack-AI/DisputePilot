@@ -26,7 +26,9 @@ class WebhookEvent(Base):
     __tablename__ = "webhook_events"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE")
+    )
     event: Mapped[str] = mapped_column(VARCHAR(100))
     # sha256 of the raw body
     body_hash: Mapped[str] = mapped_column(VARCHAR(64))

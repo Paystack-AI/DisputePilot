@@ -26,8 +26,12 @@ class NotificationLog(Base):
     __tablename__ = "notifications_log"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
-    dispute_id: Mapped[uuid.UUID | None] = mapped_column(UUID, ForeignKey("disputes.id"))
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE")
+    )
+    dispute_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("disputes.id", ondelete="SET NULL")
+    )
     channel: Mapped[NotificationChannel] = mapped_column(
         PgEnum(
             NotificationChannel,

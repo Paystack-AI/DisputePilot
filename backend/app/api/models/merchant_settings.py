@@ -24,7 +24,9 @@ class MerchantSettings(Base):
     __tablename__ = "merchant_settings"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"), unique=True)
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE"), unique=True
+    )
     notification_email: Mapped[bool] = mapped_column(BOOLEAN, default=True)
     auto_reconciliation_tier1: Mapped[bool] = mapped_column(BOOLEAN, default=True)
     default_reconciliation_range: Mapped[int] = mapped_column(INTEGER, default=1)

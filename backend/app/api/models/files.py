@@ -26,9 +26,15 @@ class StoredFile(Base):
     __tablename__ = "files"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
-    fulfillment_id: Mapped[uuid.UUID | None] = mapped_column(UUID, ForeignKey("fulfillments.id"))
-    dispute_id: Mapped[uuid.UUID | None] = mapped_column(UUID, ForeignKey("disputes.id"))
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE")
+    )
+    fulfillment_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("fulfillments.id", ondelete="SET NULL")
+    )
+    dispute_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("disputes.id", ondelete="SET NULL")
+    )
     # key in the bucket; internal only, never returned to clients
     object_name: Mapped[str] = mapped_column(Text)
     # the name the merchant uploaded, for display
