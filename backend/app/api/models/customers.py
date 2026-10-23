@@ -24,7 +24,9 @@ class Customer(Base):
     __tablename__ = "customers"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE")
+    )
     # paystack often sends no name, so the ui falls back to the email
     name: Mapped[str | None] = mapped_column(VARCHAR(255))
     # identity, stored lowercase; null only for cash customers added by the merchant

@@ -32,11 +32,15 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE")
+    )
     paystack_transaction_id: Mapped[int] = mapped_column(BIGINT)
     # unique per merchant: two paystack accounts can use the same reference
     paystack_reference: Mapped[str] = mapped_column(VARCHAR(100), index=True)
-    order_id: Mapped[uuid.UUID | None] = mapped_column(UUID, ForeignKey("orders.id"))
+    order_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("orders.id", ondelete="SET NULL")
+    )
     amount: Mapped[int] = mapped_column(BIGINT)
     currency: Mapped[Currency] = mapped_column(
         PgEnum(
@@ -68,7 +72,7 @@ class Transaction(Base):
     customer_name: Mapped[str | None] = mapped_column(VARCHAR(255))
     # set at sync from the paystack customer (email, CUS code); the customer ledger key
     customer_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID, ForeignKey("customers.id"), index=True
+        UUID, ForeignKey("customers.id", ondelete="SET NULL"), index=True
     )
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
     reconciliation_status: Mapped[ReconciliationStatus] = mapped_column(

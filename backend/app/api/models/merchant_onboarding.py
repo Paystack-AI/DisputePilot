@@ -23,7 +23,9 @@ class MerchantOnboarding(Base):
     __tablename__ = "merchant_onboarding"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"), unique=True)
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE"), unique=True
+    )
     current_step: Mapped[OnboardingStep] = mapped_column(
         PgEnum(
             OnboardingStep,

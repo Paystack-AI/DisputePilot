@@ -24,7 +24,9 @@ class ReconciliationSession(Base):
     __tablename__ = "reconciliation_sessions"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE")
+    )
     date_range_start: Mapped[date] = mapped_column(DATE)
     date_range_end: Mapped[date] = mapped_column(DATE)
     total_transactions: Mapped[int] = mapped_column(INTEGER, default=0)

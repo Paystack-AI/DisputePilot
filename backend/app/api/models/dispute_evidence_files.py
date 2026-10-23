@@ -23,7 +23,9 @@ class DisputeEvidenceFile(Base):
     __tablename__ = "dispute_evidence_files"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    dispute_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("disputes.id"))
+    dispute_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("disputes.id", ondelete="CASCADE")
+    )
     file_type: Mapped[EvidenceFileType] = mapped_column(
         PgEnum(
             EvidenceFileType,

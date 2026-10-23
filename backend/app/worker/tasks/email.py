@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from pathlib import Path
 
 import resend
 import sentry_sdk
@@ -9,6 +10,7 @@ from resend.exceptions import ResendError
 from app.api.clients.minio import MinioStorage, create_minio_storage
 from app.api.models.enums import NotificationStatus
 from app.api.models.notifications_log import NotificationLog
+from app.api.services.email_templates import LOGO_CID
 from app.core.config import get_settings
 from app.database.session import sync_session
 from app.worker.celery_app import celery_app
@@ -20,6 +22,10 @@ resend.api_key = SETTINGS.RESEND_API_KEY
 
 # one storage client per worker process, for attachments
 _storage: MinioStorage | None = None
+
+# bundled logo, embedded inline so the header image does not depend on the frontend
+# being publicly reachable (it is localhost in development)
+LOGO_PATH: Path = Path(__file__).resolve().parents[2] / "assets" / "logo.png"
 
 
 def _get_storage() -> MinioStorage:
@@ -63,11 +69,23 @@ def send_email(
         "subject": subject,
         "html": html,
     }
+    attachments: list[dict] = []
+    if f"cid:{LOGO_CID}" in html:
+        attachments.append(
+            {
+                "filename": "logo.png",
+                "content": list(LOGO_PATH.read_bytes()),
+                "content_type": "image/png",
+                "content_id": LOGO_CID,
+            }
+        )
     if attachment_object:
         content: bytes = _get_storage().retrieve_sync(SETTINGS.MINIO_BUCKET, attachment_object)
-        params["attachments"] = [
+        attachments.append(
             {"filename": attachment_name or "attachment.pdf", "content": list(content)}
-        ]
+        )
+    if attachments:
+        params["attachments"] = attachments
 
     try:
         resend.Emails.send(params, options={"idempotency_key": self.request.id})

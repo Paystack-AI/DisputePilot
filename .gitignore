@@ -59,3 +59,7 @@ Frontend-UI.txt
 
 # Deployment
 RENDER.MD
+
+# Scripts
+scripts/
+test_simulate_dispute_script.py

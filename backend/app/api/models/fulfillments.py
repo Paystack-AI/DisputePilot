@@ -25,9 +25,13 @@ class Fulfillment(Base):
     __tablename__ = "fulfillments"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
-    order_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("orders.id"))
-    transaction_id: Mapped[uuid.UUID | None] = mapped_column(UUID, ForeignKey("transactions.id"))
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE")
+    )
+    order_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("orders.id", ondelete="CASCADE"))
+    transaction_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID, ForeignKey("transactions.id", ondelete="SET NULL")
+    )
     type: Mapped[FulfillmentType] = mapped_column(
         PgEnum(
             FulfillmentType,

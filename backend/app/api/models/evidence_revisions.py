@@ -28,8 +28,12 @@ class EvidenceRevision(Base):
     __tablename__ = "evidence_revisions"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID, server_default=text("uuid_generate_v7()"))
-    dispute_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("disputes.id"))
-    merchant_id: Mapped[uuid.UUID] = mapped_column(UUID, ForeignKey("merchants.id"))
+    dispute_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("disputes.id", ondelete="CASCADE")
+    )
+    merchant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID, ForeignKey("merchants.id", ondelete="CASCADE")
+    )
     version: Mapped[int] = mapped_column(INTEGER)
     change: Mapped[EvidenceChange] = mapped_column(
         PgEnum(
